@@ -111,13 +111,13 @@ Later: multi-tenancy, richer observability, Slack/Teams approval UI, production 
 
 ## Local Development
 
-```bash
-python -m venv .venv
-source .venv/bin/activate
-pip install -e ".[dev]"
+Requires [uv](https://docs.astral.sh/uv/).
 
-pytest
-ruff check .
+```bash
+uv sync --extra dev
+
+uv run pytest
+uv run ruff check .
 ```
 
 ---

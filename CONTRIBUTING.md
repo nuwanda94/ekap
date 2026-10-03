@@ -11,12 +11,12 @@ Thank you for contributing.
 
 ## Local setup
 
+Requires [uv](https://docs.astral.sh/uv/).
+
 ```bash
-python -m venv .venv
-source .venv/bin/activate          # or .venv\\Scripts\\activate on Windows
-pip install -e ".[dev]"
-pytest
-ruff check .
+uv sync --extra dev
+uv run pytest
+uv run ruff check .
 ```
 
 ## Branch & PR workflow
