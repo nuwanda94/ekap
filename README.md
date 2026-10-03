@@ -99,8 +99,8 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for local setup and workflow details.
 ## Roadmap (in order)
 
 1. ~~Project skeleton + GitHub Actions CI~~
-2. RAG core (ingest, retrieve, citations)
-3. MCP server with 2–3 real tools
+2. ~~RAG core (ingest, retrieve, citations)~~
+3. ~~MCP server with 2–3 real tools~~
 4. Orchestrator / planning agent
 5. Approval-gate agent
 6. Eval harness (20 golden questions + automatic scoring)
@@ -134,8 +134,7 @@ uv run ruff check .
 
 ## Status
 
-Foundation is in place. Next up: RAG core.  
-Watch the [Pull Requests](https://github.com/nuwanda94/ekap/pulls) tab for progress.
+RAG core and an in-process MCP server (`health`, `search_docs`, `draft_action`) are in place. `draft_action` returns a pending draft and does not execute. Next up: orchestrator / planning.
 
 ---
 
