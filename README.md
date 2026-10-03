@@ -87,12 +87,9 @@ ekap/
 
 ## Development Model
 
-This repository is advanced by an **hourly automation** that opens exactly one PR per run.
-
 - PR titles are conventional: `chore:`, `feat:`, `fix:`, or `test:`
 - Every change lands via pull request
 - CI must be green before merge
-- Features are implemented first; the subsequent run writes the corresponding tests when needed
 
 **Do not push directly to `main`.** All work goes through PRs.
 
@@ -140,7 +137,6 @@ pytest
 
 ## Status
 
-This repository is under active, automated construction.  
 Watch the [Pull Requests](https://github.com/nuwanda94/ekap/pulls) tab for the current pulse of the system.
 
 ---
