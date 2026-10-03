@@ -20,6 +20,8 @@ jobs:
         uses: astral-sh/setup-uv@v4
         with:
           enable-cache: true
+          # No uv.lock yet; the default glob (**/uv.lock) fails the job when unmatched.
+          cache-dependency-glob: pyproject.toml
           ignore-nothing-to-cache: true
 
       - name: Set up Python ${{ matrix.python-version }}
