@@ -2,6 +2,10 @@
 
 > A single, production-oriented multi-agent system that turns internal knowledge into **safe, auditable actions**.
 
+[![CI](https://github.com/nuwanda94/ekap/actions/workflows/ci.yml/badge.svg)](https://github.com/nuwanda94/ekap/actions/workflows/ci.yml)
+[![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 EKAP is deliberately built to prove five capabilities in one coherent codebase:
 
 | Capability | What it demonstrates |
@@ -20,67 +24,62 @@ This is not five disconnected demos. It is one system with clear boundaries, aud
 
 ```
 User / API Request
-        │
-        ▼
-┌───────────────────────┐
-│  Orchestrator Agent   │  ← Planning
-│  (plan → retrieve →   │
-│   tool-use → draft)   │
-└───────────┬───────────┘
-            │
-    ┌───────┴───────┐
-    ▼               ▼
-┌─────────┐   ┌──────────────┐
-│ RAG     │   │ MCP Server   │  ← real tools
-│ Layer   │   │ (2–4 tools)  │
-└────┬────┘   └──────┬───────┘
-     │               │
-     └───────┬───────┘
-             ▼
-┌───────────────────────┐
-│ Draft Answer / Action │
-│ + full citation trail │
-└───────────┬───────────┘
-            │
-            ▼
-┌───────────────────────┐
-│ Approval Gate         │  ← human-in-the-loop
-│ (pending until Approve)│
-└───────────┬───────────┘
-            │ (only after Approve)
-            ▼
+        |
+        v
++-----------------------+
+|  Orchestrator Agent   |  <- Planning
+|  (plan -> retrieve -> |
+|   tool-use -> draft)  |
++-----------+-----------+
+            |
+    +-------+-------+
+    v               v
++---------+   +--------------+
+| RAG     |   | MCP Server   |  <- real tools
+| Layer   |   | (2-4 tools)  |
++----+----+   +------+-------+
+     |               |
+     +-------+-------+
+             v
++-----------------------+
+| Draft Answer / Action |
+| + full citation trail |
++-----------+-----------+
+            |
+            v
++-----------------------+
+| Approval Gate         |  <- human-in-the-loop
+| (pending until Approve)|
++-----------+-----------+
+            | (only after Approve)
+            v
       Execute / Respond
-            │
-            ▼
-┌───────────────────────┐
-│ Eval Harness          │  ← CI-gated
-│ (golden set + scoring)│
-└───────────────────────┘
+            |
+            v
++-----------------------+
+| Eval Harness          |  <- CI-gated
+| (golden set + scoring)|
++-----------------------+
 ```
 
 ---
 
-## Repository Layout (target)
+## Repository Layout
 
 ```
 ekap/
-── agents/
-│   ── orchestrator.py      # planning + research loop
-│   ── approval_gate.py
-── mcp_server/
-│   ── tools/
-│   ── server.py
-── rag/
-│   ── ingest.py
-│   ── retriever.py
-── evals/
-│   ── golden_set.json
-│   ── runner.py
-── ui/                      # approval dashboard or Slack handler
-── api/
-── .github/workflows/
-│   ── ci.yml
-── README.md
+├── src/ekap/
+│   ├── agents/           # orchestrator + approval-gate
+│   ├── mcp_server/       # MCP tools and server
+│   ├── rag/              # ingest, retrieve, cite
+│   └── evals/            # golden set + runner
+├── tests/
+├── .github/workflows/
+│   └── ci.yml
+├── pyproject.toml
+├── CONTRIBUTING.md
+├── LICENSE
+└── README.md
 ```
 
 ---
@@ -93,34 +92,32 @@ ekap/
 
 **Do not push directly to `main`.** All work goes through PRs.
 
+See [CONTRIBUTING.md](CONTRIBUTING.md) for local setup and workflow details.
+
 ---
 
 ## Roadmap (in order)
 
-1. Project skeleton + GitHub Actions CI  
-2. RAG core (ingest, retrieve, citations)  
-3. MCP server with 2–3 real tools  
-4. Orchestrator / planning agent  
-5. Approval-gate agent  
+1. ~~Project skeleton + GitHub Actions CI~~
+2. RAG core (ingest, retrieve, citations)
+3. MCP server with 2–3 real tools
+4. Orchestrator / planning agent
+5. Approval-gate agent
 6. Eval harness (20 golden questions + automatic scoring)
 
 Later: multi-tenancy, richer observability, Slack/Teams approval UI, production packaging.
 
 ---
 
-## Local Development (once skeleton lands)
+## Local Development
 
 ```bash
-# Python 3.12+
 python -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
 
-# Run tests
 pytest
-
-# Run CI-equivalent checks locally
-# (exact commands will appear in the first chore PR)
+ruff check .
 ```
 
 ---
@@ -137,7 +134,8 @@ pytest
 
 ## Status
 
-Watch the [Pull Requests](https://github.com/nuwanda94/ekap/pulls) tab for the current pulse of the system.
+Foundation is in place. Next up: RAG core.  
+Watch the [Pull Requests](https://github.com/nuwanda94/ekap/pulls) tab for progress.
 
 ---
 
