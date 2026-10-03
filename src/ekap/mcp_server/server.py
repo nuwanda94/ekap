@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 from ekap.rag import Retriever
@@ -41,7 +41,8 @@ class _ActionDraft:
 class MCPServer:
     """Registry of tools an agent can call without leaving the process.
 
-    Side-effect tools only return drafts. An injected executor is never invoked.
+    Side-effect tools only return drafts. An injected executor is stored so a
+    later approval gate can run it; this server never calls it.
     """
 
     def __init__(
@@ -145,8 +146,6 @@ class MCPServer:
             target=target.strip(),
         )
         self._drafts.append(draft)
-        # Side effects stay pending. The executor, if any, is not called.
-        _ = self._executor
         return ToolResult(
             name="draft_action",
             ok=True,
@@ -159,7 +158,3 @@ class MCPServer:
                 "executed": False,
             },
         )
-
-
-# Keep field import available if a future revision adds mutable tool state annotations.
-_ = field
