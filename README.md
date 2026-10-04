@@ -137,7 +137,7 @@ uv run python -m ekap.evals
 
 ## Status
 
-RAG core, an in-process MCP server (`health`, `search_docs`, `draft_action`), a planning orchestrator, an approval gate, and an eval harness are in place. The harness scores 22 golden retrieval questions against a bundled corpus and returns exit code 1 when the top chunk source or required phrase is wrong. CI invokes `python -m ekap.evals` after tests, so a retrieval regression fails the build. `ApprovalGate.draft` records a pending action and does not call the executor. `approve` runs the injected executor once; `reject` leaves external state unchanged. MCP `draft_action` results can be submitted to the gate; the server itself still never executes.
+RAG core, an in-process MCP server (`health`, `search_docs`, `draft_action`), a planning orchestrator, an approval gate, and an eval harness are in place. The harness scores 22 golden retrieval questions against a bundled corpus and returns exit code 1 when the top chunk source or required phrase is wrong. CI invokes `python -m ekap.evals` after tests, so a retrieval regression fails the build. `ApprovalGate.draft` records a pending action and does not call the executor. `approve` runs the injected executor once; `reject` leaves external state unchanged. MCP `draft_action` results can be submitted to the gate; the server itself still never executes. `Orchestrator.run` attaches a `RunTrace` of plan, retrieve, tool, and synthesize events so a draft is auditable without executing side effects.
 
 ---
 

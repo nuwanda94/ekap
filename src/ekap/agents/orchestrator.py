@@ -28,6 +28,23 @@ class Plan:
 
 
 @dataclass(frozen=True, slots=True)
+class TraceEvent:
+    """One audited stage of an orchestrator run."""
+
+    stage: str
+    detail: str
+    ok: bool = True
+
+
+@dataclass(frozen=True, slots=True)
+class RunTrace:
+    """Ordered audit trail for a single question. Side effects are not included."""
+
+    question: str
+    events: tuple[TraceEvent, ...]
+
+
+@dataclass(frozen=True, slots=True)
 class DraftAnswer:
     """Synthesized draft that must carry its citation trail."""
 
@@ -37,6 +54,7 @@ class DraftAnswer:
     citations: tuple[Citation, ...]
     tool_results: tuple[ToolResult, ...] = ()
     status: str = "draft"
+    trace: RunTrace | None = None
 
 
 class Orchestrator:
@@ -68,9 +86,12 @@ class Orchestrator:
         return Plan(question=cleaned, steps=tuple(steps))
 
     def run(self, question: str) -> DraftAnswer:
-        """Execute the plan and return a draft answer with citations."""
+        """Execute the plan and return a draft answer with citations and a trace."""
         planned = self.plan(question)
+        events = [TraceEvent("plan", f"{len(planned.steps)} steps")]
         citations = self._retriever.query_with_citations(planned.question, top_k=3)
+        top = citations[0].source_id if citations else "none"
+        events.append(TraceEvent("retrieve", f"{len(citations)} citations; top={top}"))
         tool_results: list[ToolResult] = []
         if self._tools is not None:
             search = self._tools.call(
@@ -78,24 +99,28 @@ class Orchestrator:
                 {"query": planned.question, "top_k": 3},
             )
             tool_results.append(search)
+            events.append(TraceEvent("tool", search.name, ok=search.ok))
             if search.ok and not citations:
                 citations = _citations_from_tool(search)
             if _looks_like_mutation(planned.question):
-                tool_results.append(
-                    self._tools.call(
-                        "draft_action",
-                        {
-                            "action": "requested_action",
-                            "target": planned.question,
-                        },
-                    )
+                drafted = self._tools.call(
+                    "draft_action",
+                    {
+                        "action": "requested_action",
+                        "target": planned.question,
+                    },
                 )
+                tool_results.append(drafted)
+                events.append(TraceEvent("tool", drafted.name, ok=drafted.ok))
+        events.append(TraceEvent("synthesize", f"{len(citations)} citations"))
+        trace = RunTrace(question=planned.question, events=tuple(events))
         return DraftAnswer(
             question=planned.question,
             plan=planned,
             text=_synthesize(planned.question, citations),
             citations=tuple(citations),
             tool_results=tuple(tool_results),
+            trace=trace,
         )
 
 

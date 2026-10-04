@@ -2,7 +2,7 @@
 
 import pytest
 
-from ekap.agents import DraftAnswer, Orchestrator, Plan
+from ekap.agents import DraftAnswer, Orchestrator, Plan, RunTrace
 from ekap.mcp_server import MCPServer
 from ekap.rag import Ingester, Retriever
 
@@ -82,3 +82,29 @@ def test_blank_question_is_rejected() -> None:
     orchestrator = Orchestrator(_retriever())
     with pytest.raises(ValueError, match="question is required"):
         orchestrator.plan("   ")
+
+
+def test_run_trace_records_plan_retrieve_and_synthesize() -> None:
+    draft = Orchestrator(_retriever()).run("  How fast does vacation accrue?  ")
+    assert isinstance(draft.trace, RunTrace)
+    assert draft.trace.question == "How fast does vacation accrue?"
+    stages = [event.stage for event in draft.trace.events]
+    assert stages == ["plan", "retrieve", "synthesize"]
+    assert all(event.ok for event in draft.trace.events)
+    assert draft.trace.events[1].detail == "3 citations; top=handbook-1" or (
+        "top=handbook-1" in draft.trace.events[1].detail
+    )
+    assert "handbook-1" in draft.trace.events[1].detail
+    assert draft.trace.events[-1].detail.endswith("citations")
+
+
+def test_run_trace_records_tool_events_without_execution() -> None:
+    retriever = _retriever()
+    executed: list[dict[str, str]] = []
+    server = MCPServer(retriever=retriever, executor=executed.append)
+    draft = Orchestrator(retriever, tools=server).run("Please file the expense report")
+    assert draft.trace is not None
+    tool_events = [event for event in draft.trace.events if event.stage == "tool"]
+    assert [event.detail for event in tool_events] == ["search_docs", "draft_action"]
+    assert all(event.ok for event in tool_events)
+    assert executed == []
