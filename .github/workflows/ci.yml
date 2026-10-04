@@ -35,3 +35,6 @@ jobs:
 
       - name: Run tests
         run: uv run pytest --cov=ekap --cov-report=term-missing -q
+
+      - name: Score golden set
+        run: uv run python -m ekap.evals
