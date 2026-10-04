@@ -53,7 +53,7 @@ class ApprovalGate:
         action = draft.get("action", "")
         target = draft.get("target", "")
         if not isinstance(action, str) or not isinstance(target, str):
-            raise ValueError("draft action and target must be strings")
+            raise TypeError("draft action and target must be strings")
         extra = {
             key: value
             for key, value in draft.items()
@@ -88,7 +88,7 @@ class ApprovalGate:
         """Mark a pending action rejected. Does not call the executor."""
         current = self._require_pending(action_id)
         if not isinstance(reason, str):
-            raise ValueError("reason must be a string")
+            raise TypeError("reason must be a string")
         rejected = PendingAction(
             action_id=current.action_id,
             action=current.action,
