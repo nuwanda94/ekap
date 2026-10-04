@@ -102,7 +102,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for local setup and workflow details.
 2. ~~RAG core (ingest, retrieve, citations)~~
 3. ~~MCP server with 2–3 real tools~~
 4. ~~Orchestrator / planning agent~~
-5. Approval-gate agent
+5. ~~Approval-gate agent~~
 6. Eval harness (20 golden questions + automatic scoring)
 
 Later: multi-tenancy, richer observability, Slack/Teams approval UI, production packaging.
@@ -134,7 +134,7 @@ uv run ruff check .
 
 ## Status
 
-RAG core, an in-process MCP server (`health`, `search_docs`, `draft_action`), and a planning orchestrator are in place. `Orchestrator.plan` returns retrieve/tool/synthesize steps. `Orchestrator.run` returns a draft answer whose text embeds citation source ids and snippets. Mutating questions draft an action and do not execute it. Next up: approval gate.
+RAG core, an in-process MCP server (`health`, `search_docs`, `draft_action`), a planning orchestrator, and an approval gate are in place. `ApprovalGate.draft` records a pending action and does not call the executor. `approve` runs the injected executor once; `reject` leaves external state unchanged. MCP `draft_action` results can be submitted to the gate; the server itself still never executes. Next up: eval harness.
 
 ---
 
