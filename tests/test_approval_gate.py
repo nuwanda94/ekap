@@ -2,7 +2,7 @@
 
 import pytest
 
-from ekap.agents import ApprovalGate, PendingAction
+from ekap.agents import ApprovalGate, DecisionRecord, PendingAction
 from ekap.mcp_server import MCPServer
 
 
@@ -86,3 +86,32 @@ def test_unknown_and_blank_inputs_are_rejected() -> None:
     pending = ungated.draft("file", "x")
     with pytest.raises(RuntimeError, match="no executor configured"):
         ungated.approve(pending.action_id)
+
+
+def test_decision_log_records_draft_approve_and_reject() -> None:
+    ledger: list[str] = []
+    gate = ApprovalGate(executor=lambda body: ledger.append(body["action_id"]))
+    filed = gate.draft("file_expense", "travel-report")
+    kept = gate.draft("delete_record", "policy-1")
+    gate.approve(filed.action_id)
+    gate.reject(kept.action_id, reason="  missing sign-off  ")
+
+    decisions = gate.decisions()
+    assert [type(item) for item in decisions] == [DecisionRecord] * 4
+    assert [(item.action_id, item.status, item.reason) for item in decisions] == [
+        ("action-1", "pending", ""),
+        ("action-2", "pending", ""),
+        ("action-1", "executed", ""),
+        ("action-2", "rejected", "missing sign-off"),
+    ]
+    assert decisions[2].action == "file_expense"
+    assert decisions[2].target == "travel-report"
+    assert decisions[3].target == "policy-1"
+    assert ledger == ["action-1"]
+    assert gate.executed[0]["action_id"] == "action-1"
+
+    ungated = ApprovalGate()
+    pending = ungated.draft("file", "x")
+    with pytest.raises(RuntimeError, match="no executor configured"):
+        ungated.approve(pending.action_id)
+    assert [(item.status) for item in ungated.decisions()] == ["pending"]

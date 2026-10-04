@@ -21,12 +21,24 @@ class PendingAction:
     reason: str = ""
 
 
+@dataclass(frozen=True, slots=True)
+class DecisionRecord:
+    """One audited gate transition. Does not include executor results."""
+
+    action_id: str
+    action: str
+    target: str
+    status: str
+    reason: str = ""
+
+
 class ApprovalGate:
     """draft → approve → execute, or reject without touching external state."""
 
     def __init__(self, executor: Executor | None = None) -> None:
         self._executor = executor
         self._actions: dict[str, PendingAction] = {}
+        self._decisions: list[DecisionRecord] = []
         self.executed: list[dict[str, Any]] = []
 
     def draft(
@@ -46,6 +58,7 @@ class ApprovalGate:
             payload=dict(payload or {}),
         )
         self._actions[action_id] = pending
+        self._record(pending)
         return pending
 
     def submit_draft(self, draft: Mapping[str, Any]) -> PendingAction:
@@ -82,6 +95,7 @@ class ApprovalGate:
             status="executed",
         )
         self._actions[action_id] = executed
+        self._record(executed)
         return executed
 
     def reject(self, action_id: str, reason: str = "") -> PendingAction:
@@ -98,12 +112,28 @@ class ApprovalGate:
             reason=reason.strip(),
         )
         self._actions[action_id] = rejected
+        self._record(rejected)
         return rejected
 
     def get(self, action_id: str) -> PendingAction:
         if action_id not in self._actions:
             raise KeyError(f"unknown action: {action_id}")
         return self._actions[action_id]
+
+    def decisions(self) -> tuple[DecisionRecord, ...]:
+        """Return gate transitions in the order they were recorded."""
+        return tuple(self._decisions)
+
+    def _record(self, action: PendingAction) -> None:
+        self._decisions.append(
+            DecisionRecord(
+                action_id=action.action_id,
+                action=action.action,
+                target=action.target,
+                status=action.status,
+                reason=action.reason,
+            )
+        )
 
     def _require_pending(self, action_id: str) -> PendingAction:
         current = self.get(action_id)
