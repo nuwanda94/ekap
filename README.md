@@ -34,7 +34,7 @@ User / API Request
             |
     +-------+-------+
     v               v
-+---------+   +--------------+
++---------+	   +--------------+
 | RAG     |   | MCP Server   |  <- real tools
 | Layer   |   | (2-4 tools)  |
 +----+----+   +------+-------+
@@ -101,7 +101,7 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for local setup and workflow details.
 1. ~~Project skeleton + GitHub Actions CI~~
 2. ~~RAG core (ingest, retrieve, citations)~~
 3. ~~MCP server with 2–3 real tools~~
-4. Orchestrator / planning agent
+4. ~~Orchestrator / planning agent~~
 5. Approval-gate agent
 6. Eval harness (20 golden questions + automatic scoring)
 
@@ -134,7 +134,7 @@ uv run ruff check .
 
 ## Status
 
-RAG core and an in-process MCP server (`health`, `search_docs`, `draft_action`) are in place. `draft_action` returns a pending draft and does not execute. Next up: orchestrator / planning.
+RAG core, an in-process MCP server (`health`, `search_docs`, `draft_action`), and a planning orchestrator are in place. `Orchestrator.plan` returns retrieve/tool/synthesize steps. `Orchestrator.run` returns a draft answer whose text embeds citation source ids and snippets. Mutating questions draft an action and do not execute it. Next up: approval gate.
 
 ---
 
