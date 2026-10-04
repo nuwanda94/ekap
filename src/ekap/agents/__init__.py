@@ -8,6 +8,7 @@ from ekap.agents.orchestrator import (
     PlanStep,
     RunTrace,
     TraceEvent,
+    queue_mutation_drafts,
 )
 
 __all__ = [
@@ -20,4 +21,5 @@ __all__ = [
     "PlanStep",
     "RunTrace",
     "TraceEvent",
+    "queue_mutation_drafts",
 ]
