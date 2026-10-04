@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from ekap.agents.gate import ApprovalGate, PendingAction
 from ekap.mcp_server import MCPServer, ToolResult
 from ekap.rag import Citation, Retriever
 
@@ -55,14 +56,21 @@ class DraftAnswer:
     tool_results: tuple[ToolResult, ...] = ()
     status: str = "draft"
     trace: RunTrace | None = None
+    pending_action: PendingAction | None = None
 
 
 class Orchestrator:
     """plan → retrieve/tool → synthesize, without executing side effects."""
 
-    def __init__(self, retriever: Retriever, tools: MCPServer | None = None) -> None:
+    def __init__(
+        self,
+        retriever: Retriever,
+        tools: MCPServer | None = None,
+        gate: ApprovalGate | None = None,
+    ) -> None:
         self._retriever = retriever
         self._tools = tools
+        self._gate = gate
 
     def plan(self, question: str) -> Plan:
         """Build a reviewable plan. Does not retrieve or call tools."""
@@ -93,6 +101,7 @@ class Orchestrator:
         top = citations[0].source_id if citations else "none"
         events.append(TraceEvent("retrieve", f"{len(citations)} citations; top={top}"))
         tool_results: list[ToolResult] = []
+        pending_action: PendingAction | None = None
         if self._tools is not None:
             search = self._tools.call(
                 "search_docs",
@@ -112,6 +121,7 @@ class Orchestrator:
                 )
                 tool_results.append(drafted)
                 events.append(TraceEvent("tool", drafted.name, ok=drafted.ok))
+                pending_action = self._queue_draft(drafted, events)
         events.append(TraceEvent("synthesize", f"{len(citations)} citations"))
         trace = RunTrace(question=planned.question, events=tuple(events))
         return DraftAnswer(
@@ -121,7 +131,20 @@ class Orchestrator:
             citations=tuple(citations),
             tool_results=tuple(tool_results),
             trace=trace,
+            pending_action=pending_action,
         )
+
+    def _queue_draft(
+        self,
+        drafted: ToolResult,
+        events: list[TraceEvent],
+    ) -> PendingAction | None:
+        """Submit a tool draft to the gate. Does not approve or execute it."""
+        if self._gate is None or not drafted.ok or not drafted.draft:
+            return None
+        pending = self._gate.submit_draft(drafted.data)
+        events.append(TraceEvent("gate", f"{pending.action_id} pending"))
+        return pending
 
 
 def _require_question(question: str) -> str:

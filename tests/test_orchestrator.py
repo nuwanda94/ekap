@@ -2,7 +2,7 @@
 
 import pytest
 
-from ekap.agents import DraftAnswer, Orchestrator, Plan, RunTrace
+from ekap.agents import ApprovalGate, DraftAnswer, Orchestrator, Plan, RunTrace
 from ekap.mcp_server import MCPServer
 from ekap.rag import Ingester, Retriever
 
@@ -45,6 +45,7 @@ def test_run_returns_draft_that_cites_relevant_source() -> None:
     assert "1.5 days" in draft.citations[0].snippet
     assert "handbook-1" in draft.text
     assert draft.citations[0].snippet in draft.text
+    assert draft.pending_action is None
 
 
 def test_run_uses_search_tool_and_does_not_execute_mutation() -> None:
@@ -67,6 +68,7 @@ def test_run_uses_search_tool_and_does_not_execute_mutation() -> None:
     assert names == ["search_docs", "draft_action"]
     assert draft.tool_results[-1].draft is True
     assert draft.tool_results[-1].data["executed"] is False
+    assert draft.pending_action is None
     assert executed == []
     assert server.executed == []
 
@@ -108,3 +110,44 @@ def test_run_trace_records_tool_events_without_execution() -> None:
     assert [event.detail for event in tool_events] == ["search_docs", "draft_action"]
     assert all(event.ok for event in tool_events)
     assert executed == []
+
+
+def test_mutation_is_queued_on_gate_and_not_executed() -> None:
+    retriever = _retriever()
+    ledger: list[dict[str, object]] = []
+    gate = ApprovalGate(executor=ledger.append)
+    server = MCPServer(retriever=retriever, executor=ledger.append)
+    draft = Orchestrator(retriever, tools=server, gate=gate).run(
+        "Please file the expense report for travel"
+    )
+    pending = draft.pending_action
+    assert pending is not None
+    assert pending.status == "pending"
+    assert pending.action == "requested_action"
+    assert pending.target == "Please file the expense report for travel"
+    assert gate.get(pending.action_id).status == "pending"
+    assert gate.executed == []
+    assert ledger == []
+    assert server.executed == []
+    assert draft.trace is not None
+    assert draft.trace.events[-2].stage == "gate"
+    assert draft.trace.events[-2].detail == f"{pending.action_id} pending"
+
+    gate.approve(pending.action_id)
+    assert ledger[0]["action"] == "requested_action"
+    assert gate.get(pending.action_id).status == "executed"
+
+
+def test_non_mutation_does_not_queue_on_gate() -> None:
+    retriever = _retriever()
+    ledger: list[dict[str, object]] = []
+    gate = ApprovalGate(executor=ledger.append)
+    server = MCPServer(retriever=retriever, executor=ledger.append)
+    draft = Orchestrator(retriever, tools=server, gate=gate).run(
+        "How fast does vacation accrue?"
+    )
+    assert draft.pending_action is None
+    assert gate.decisions() == ()
+    assert ledger == []
+    assert draft.trace is not None
+    assert "gate" not in [event.stage for event in draft.trace.events]
