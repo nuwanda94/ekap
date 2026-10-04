@@ -82,5 +82,7 @@ def test_unknown_and_blank_inputs_are_rejected() -> None:
         gate.draft("  ", "target")
     with pytest.raises(KeyError, match="unknown action"):
         gate.approve("action-99")
+    ungated = ApprovalGate()
+    pending = ungated.draft("file", "x")
     with pytest.raises(RuntimeError, match="no executor configured"):
-        ApprovalGate().approve(ApprovalGate().draft("file", "x").action_id)
+        ungated.approve(pending.action_id)
