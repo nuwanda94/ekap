@@ -2,7 +2,14 @@
 
 import pytest
 
-from ekap.agents import ApprovalGate, DraftAnswer, Orchestrator, Plan, RunTrace, queue_mutation_drafts
+from ekap.agents import (
+    ApprovalGate,
+    DraftAnswer,
+    Orchestrator,
+    Plan,
+    RunTrace,
+    queue_mutation_drafts,
+)
 from ekap.mcp_server import MCPServer
 from ekap.rag import Ingester, Retriever
 
@@ -28,7 +35,7 @@ def test_plan_shape_includes_retrieve_and_synthesize() -> None:
     plan = orchestrator.plan("What is the vacation accrual rate?")
     assert isinstance(plan, Plan)
     assert plan.question == "What is the vacation accrual rate?"
-    assert [step.kind for step in plan.steps][0] == "retrieve"
+    assert next(step.kind for step in plan.steps) == "retrieve"
     assert plan.steps[-1].kind == "synthesize"
     assert all(step.step_id and step.detail for step in plan.steps)
 
