@@ -62,11 +62,20 @@ class ApprovalGate:
         return pending
 
     def submit_draft(self, draft: Mapping[str, Any]) -> PendingAction:
-        """Queue an already-built tool draft. Does not execute it."""
+        """Queue an already-built tool draft. Does not execute it.
+
+        Only a pending draft is accepted. A cancelled or executed tool draft
+        fails closed and is not recorded.
+        """
         action = draft.get("action", "")
         target = draft.get("target", "")
         if not isinstance(action, str) or not isinstance(target, str):
             raise TypeError("draft action and target must be strings")
+        status = draft.get("status", "pending")
+        if not isinstance(status, str):
+            raise TypeError("draft status must be a string")
+        if status != "pending":
+            raise ValueError(f"draft is {status}, not pending")
         extra = {
             key: value
             for key, value in draft.items()

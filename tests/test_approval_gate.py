@@ -115,3 +115,36 @@ def test_decision_log_records_draft_approve_and_reject() -> None:
     with pytest.raises(RuntimeError, match="no executor configured"):
         ungated.approve(pending.action_id)
     assert [(item.status) for item in ungated.decisions()] == ["pending"]
+
+
+def test_submit_draft_rejects_non_pending_without_recording() -> None:
+    ledger: list[str] = []
+    gate = ApprovalGate(executor=lambda body: ledger.append(body["action"]))
+    server = MCPServer(executor=lambda payload: ledger.append("executed"))
+    tool_draft = server.call(
+        "draft_action",
+        {"action": "file_expense", "target": "travel report"},
+    )
+    cancelled = server.call("cancel_draft", {"draft_id": tool_draft.data["draft_id"]})
+    assert cancelled.ok
+    assert cancelled.data["status"] == "cancelled"
+
+    with pytest.raises(ValueError, match="not pending"):
+        gate.submit_draft(cancelled.data)
+    with pytest.raises(ValueError, match="not pending"):
+        gate.submit_draft(
+            {
+                "action": "file_expense",
+                "target": "travel report",
+                "status": "executed",
+                "executed": True,
+            }
+        )
+    with pytest.raises(TypeError, match="status must be a string"):
+        gate.submit_draft({"action": "file_expense", "target": "travel report", "status": 1})
+
+    assert gate.decisions() == ()
+    assert gate.executed == []
+    assert ledger == []
+    assert server.executed == []
+    assert server.drafts()[0]["status"] == "cancelled"
