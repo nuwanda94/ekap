@@ -12,6 +12,10 @@ HANDBOOK = (
     "Vacation accrues at 1.5 days per month. "
     "Unused vacation may roll over up to 10 days."
 )
+BETA_POLICY = (
+    "Expense reports over 500 dollars require director approval at Beta. "
+    "Travel must be booked through the corporate portal."
+)
 
 
 def test_ingest_at_least_two_documents() -> None:
@@ -92,3 +96,32 @@ def test_rejects_blank_document() -> None:
     ingester = Ingester()
     with pytest.raises(ValueError):
         ingester.add("policy-1", "   ")
+
+
+def test_query_filters_by_document_metadata() -> None:
+    ingester = Ingester()
+    ingester.add("policy-a", POLICY, metadata={"tenant": "acme", "kind": "policy"})
+    ingester.add("policy-b", BETA_POLICY, metadata={"tenant": "beta", "kind": "policy"})
+    retriever = Retriever(ingester)
+    unfiltered = retriever.query("expense reports over 500 dollars", top_k=2)
+    assert {hit.chunk.source_id for hit in unfiltered} == {"policy-a", "policy-b"}
+
+    filtered = retriever.query(
+        "expense reports over 500 dollars",
+        top_k=2,
+        metadata={"tenant": "beta"},
+    )
+    assert [hit.chunk.source_id for hit in filtered] == ["policy-b"]
+    assert "director approval" in filtered[0].chunk.text
+
+    citations = retriever.query_with_citations(
+        "expense reports over 500 dollars",
+        top_k=2,
+        metadata={" tenant ": "acme", "kind": "policy"},
+    )
+    assert [citation.source_id for citation in citations] == ["policy-a"]
+    assert "manager approval" in citations[0].snippet
+    assert retriever.query("expense reports", metadata={"tenant": "missing"}) == []
+
+    with pytest.raises(ValueError):
+        retriever.query("expense reports", metadata={"tenant": 1})  # type: ignore[dict-item]

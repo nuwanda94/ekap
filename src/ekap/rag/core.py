@@ -141,6 +141,27 @@ def _require_source_id(source_id: str) -> str:
     return source_id.strip()
 
 
+def _normalize_metadata_filter(metadata: dict[str, str] | None) -> dict[str, str]:
+    if metadata is None:
+        return {}
+    if not isinstance(metadata, dict):
+        raise TypeError("metadata filter must be a dict of strings")
+    cleaned: dict[str, str] = {}
+    for key, value in metadata.items():
+        if not isinstance(key, str) or not key.strip():
+            raise ValueError("metadata keys must be non-empty strings")
+        if not isinstance(value, str):
+            raise ValueError("metadata values must be strings")
+        cleaned[key.strip()] = value
+    return cleaned
+
+
+def _metadata_matches(document: Document | None, required: dict[str, str]) -> bool:
+    if document is None:
+        return False
+    return all(document.metadata.get(key) == value for key, value in required.items())
+
+
 @dataclass(frozen=True, slots=True)
 class ScoredChunk:
     chunk: Chunk
@@ -153,14 +174,25 @@ class Retriever:
     def __init__(self, ingester: Ingester) -> None:
         self._ingester = ingester
 
-    def query(self, text: str, *, top_k: int = 3) -> list[ScoredChunk]:
+    def query(
+        self,
+        text: str,
+        *,
+        top_k: int = 3,
+        metadata: dict[str, str] | None = None,
+    ) -> list[ScoredChunk]:
+        """Rank chunks. When metadata is set, every pair must match the source."""
         if top_k < 1:
             raise ValueError("top_k must be >= 1")
+        required = _normalize_metadata_filter(metadata)
         query_tokens = _tokens(text)
         if not query_tokens:
             return []
+        documents = {document.source_id: document for document in self._ingester.documents}
         scored: list[ScoredChunk] = []
         for chunk in self._ingester.chunks:
+            if required and not _metadata_matches(documents.get(chunk.source_id), required):
+                continue
             chunk_tokens = set(_tokens(chunk.text))
             if not chunk_tokens:
                 continue
@@ -171,5 +203,14 @@ class Retriever:
         scored.sort(key=lambda hit: (-hit.score, hit.chunk.source_id, hit.chunk.index))
         return scored[:top_k]
 
-    def query_with_citations(self, text: str, *, top_k: int = 3) -> list[Citation]:
-        return [cite(hit.chunk, score=hit.score) for hit in self.query(text, top_k=top_k)]
+    def query_with_citations(
+        self,
+        text: str,
+        *,
+        top_k: int = 3,
+        metadata: dict[str, str] | None = None,
+    ) -> list[Citation]:
+        return [
+            cite(hit.chunk, score=hit.score)
+            for hit in self.query(text, top_k=top_k, metadata=metadata)
+        ]
