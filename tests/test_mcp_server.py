@@ -45,6 +45,7 @@ def test_health_is_callable() -> None:
     assert "get_source" in result.data["tools"]
     assert "list_drafts" in result.data["tools"]
     assert "get_draft" in result.data["tools"]
+    assert "cancel_draft" in result.data["tools"]
     assert "draft_remove_source" in result.data["tools"]
     assert executed == []
 
@@ -364,6 +365,62 @@ def test_draft_action_returns_draft_and_does_not_execute() -> None:
             "status": "pending",
         },
     )
+
+
+def test_cancel_draft_withdraws_pending_draft_without_executing() -> None:
+    ingester = Ingester()
+    ingester.add("policy-a", POLICY, metadata={"tenant": "acme"})
+    executed: list[dict[str, str]] = []
+    server = MCPServer(
+        retriever=Retriever(ingester),
+        executor=executed.append,
+        ingester=ingester,
+    )
+    filed = server.call("draft_action", {"action": "file_expense", "target": "report-42"})
+    removed = server.call("draft_remove_source", {"source_id": "policy-a"})
+    assert filed.ok and removed.ok
+
+    result = server.call("cancel_draft", {"draft_id": " draft-2 "})
+    assert result.ok is True
+    assert result.draft is False
+    assert result.data == {
+        "draft_id": "draft-2",
+        "action": "remove_source",
+        "target": "policy-a",
+        "status": "cancelled",
+        "executed": False,
+    }
+    result.data["target"] = "mutated"
+    again = server.call("get_draft", {"draft_id": "draft-2"})
+    assert again.data["status"] == "cancelled"
+    assert again.data["target"] == "policy-a"
+    listed = server.call("list_drafts")
+    assert [item["status"] for item in listed.data["drafts"]] == ["pending", "cancelled"]
+    assert server.drafts()[1]["status"] == "cancelled"
+
+    repeat = server.call("cancel_draft", {"draft_id": "draft-2"})
+    assert repeat.ok is False
+    assert repeat.draft is False
+    assert "not pending" in repeat.data["error"]
+    unknown = server.call("cancel_draft", {"draft_id": "draft-9"})
+    assert unknown.ok is False
+    assert "unknown draft" in unknown.data["error"]
+    blank = server.call("cancel_draft", {"draft_id": "  "})
+    assert blank.ok is False
+    assert "draft_id" in blank.data["error"]
+    missing = server.call("cancel_draft")
+    assert missing.ok is False
+    assert "draft_id" in missing.data["error"]
+    extra = server.call("cancel_draft", {"draft_id": "draft-1", "execute": True})
+    assert extra.ok is False
+    assert "draft_id" in extra.data["error"]
+
+    still_pending = server.call("get_draft", {"draft_id": "draft-1"})
+    assert still_pending.data["status"] == "pending"
+    assert executed == []
+    assert server.executed == []
+    assert [document.source_id for document in ingester.documents] == ["policy-a"]
+    assert len(server.drafts()) == 2
 
 
 def test_unknown_tool_and_missing_args_fail_closed() -> None:
