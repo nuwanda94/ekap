@@ -13,6 +13,10 @@ HANDBOOK = (
     "Vacation accrues at 1.5 days per month. "
     "Unused vacation may roll over up to 10 days."
 )
+BETA_POLICY = (
+    "Expense reports over 500 dollars require director approval at Beta. "
+    "Travel must be booked through the corporate portal."
+)
 
 
 def _server() -> tuple[MCPServer, list[dict[str, str]]]:
@@ -50,6 +54,39 @@ def test_search_docs_returns_ranked_citation() -> None:
     assert citations[0]["source_id"] == "policy-1"
     assert "manager approval" in citations[0]["snippet"]
     assert citations[0]["score"] > 0
+
+
+def test_search_docs_filters_by_metadata() -> None:
+    ingester = Ingester()
+    ingester.add("policy-a", POLICY, metadata={"tenant": "acme", "kind": "policy"})
+    ingester.add("policy-b", BETA_POLICY, metadata={"tenant": "beta", "kind": "policy"})
+    server = MCPServer(retriever=Retriever(ingester))
+    result = server.call(
+        "search_docs",
+        {
+            "query": "expense reports over 500 dollars",
+            "top_k": 2,
+            "metadata": {"tenant": "beta"},
+        },
+    )
+    assert result.ok is True
+    assert result.draft is False
+    assert [item["source_id"] for item in result.data["citations"]] == ["policy-b"]
+    assert "director approval" in result.data["citations"][0]["snippet"]
+
+    unfiltered = server.call(
+        "search_docs",
+        {"query": "expense reports over 500 dollars", "top_k": 2},
+    )
+    assert {item["source_id"] for item in unfiltered.data["citations"]} == {"policy-a", "policy-b"}
+
+    bad = server.call(
+        "search_docs",
+        {"query": "expense reports", "metadata": {"tenant": 1}},
+    )
+    assert bad.ok is False
+    assert "metadata" in bad.data["error"]
+    assert server.executed == []
 
 
 def test_draft_action_returns_draft_and_does_not_execute() -> None:

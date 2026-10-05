@@ -109,13 +109,24 @@ class MCPServer:
         top_k = args.get("top_k", 3)
         if not isinstance(top_k, int) or isinstance(top_k, bool) or top_k < 1:
             return ToolResult(name="search_docs", ok=False, data={"error": "top_k must be >= 1"})
+        metadata = args.get("metadata")
+        metadata_error = _metadata_error(metadata)
+        if metadata_error is not None:
+            return ToolResult(name="search_docs", ok=False, data={"error": metadata_error})
         if self._retriever is None:
             return ToolResult(
                 name="search_docs",
                 ok=False,
                 data={"error": "no retriever configured"},
             )
-        citations = self._retriever.query_with_citations(query, top_k=top_k)
+        try:
+            citations = self._retriever.query_with_citations(
+                query,
+                top_k=top_k,
+                metadata=metadata,
+            )
+        except (TypeError, ValueError) as exc:
+            return ToolResult(name="search_docs", ok=False, data={"error": str(exc)})
         return ToolResult(
             name="search_docs",
             ok=True,
@@ -158,3 +169,15 @@ class MCPServer:
                 "executed": False,
             },
         )
+
+
+def _metadata_error(metadata: object) -> str | None:
+    """Return an error when metadata is present but not a string map."""
+    if metadata is None:
+        return None
+    if not isinstance(metadata, dict):
+        return "metadata must be a dict of strings"
+    for key, value in metadata.items():
+        if not isinstance(key, str) or not isinstance(value, str):
+            return "metadata must be a dict of strings"
+    return None
