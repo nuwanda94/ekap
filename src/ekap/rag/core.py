@@ -89,18 +89,26 @@ class Ingester:
         metadata: dict[str, str] | None = None,
     ) -> Document:
         """Ingest one document, replacing any previous document with the same id."""
-        if not source_id or not source_id.strip():
-            raise ValueError("source_id is required")
+        cleaned_id = _require_source_id(source_id)
         if not text or not text.strip():
             raise ValueError("text is required")
-        document = Document(source_id=source_id, text=text, metadata=dict(metadata or {}))
-        self._documents[source_id] = document
-        self._chunks = [chunk for chunk in self._chunks if chunk.source_id != source_id]
+        document = Document(source_id=cleaned_id, text=text, metadata=dict(metadata or {}))
+        self._documents[cleaned_id] = document
+        self._chunks = [chunk for chunk in self._chunks if chunk.source_id != cleaned_id]
         self._chunks.extend(self._split(document))
         return document
 
     def add_documents(self, documents: list[Document]) -> list[Document]:
         return [self.add(doc.source_id, doc.text, metadata=doc.metadata) for doc in documents]
+
+    def remove(self, source_id: str) -> Document:
+        """Withdraw a source so its chunks are no longer retrieved."""
+        cleaned_id = _require_source_id(source_id)
+        if cleaned_id not in self._documents:
+            raise KeyError(f"unknown source: {cleaned_id}")
+        document = self._documents.pop(cleaned_id)
+        self._chunks = [chunk for chunk in self._chunks if chunk.source_id != cleaned_id]
+        return document
 
     def _split(self, document: Document) -> list[Chunk]:
         text = document.text.strip()
@@ -125,6 +133,12 @@ class Ingester:
             )
             for index, piece in enumerate(pieces)
         ]
+
+
+def _require_source_id(source_id: str) -> str:
+    if not isinstance(source_id, str) or not source_id.strip():
+        raise ValueError("source_id is required")
+    return source_id.strip()
 
 
 @dataclass(frozen=True, slots=True)

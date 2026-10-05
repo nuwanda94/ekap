@@ -74,6 +74,20 @@ def test_reingest_replaces_chunks_for_same_source() -> None:
     assert all("manager approval" not in chunk.text for chunk in ingester.chunks)
 
 
+def test_remove_withdraws_source_from_retrieval() -> None:
+    ingester = Ingester()
+    ingester.add("policy-1", POLICY)
+    ingester.add("handbook-1", HANDBOOK)
+    removed = ingester.remove(" policy-1 ")
+    assert removed.source_id == "policy-1"
+    assert {doc.source_id for doc in ingester.documents} == {"handbook-1"}
+    assert all(chunk.source_id != "policy-1" for chunk in ingester.chunks)
+    hits = Retriever(ingester).query("Who must approve expense reports over 500?")
+    assert hits == [] or all(hit.chunk.source_id != "policy-1" for hit in hits)
+    with pytest.raises(KeyError):
+        ingester.remove("policy-1")
+
+
 def test_rejects_blank_document() -> None:
     ingester = Ingester()
     with pytest.raises(ValueError):
