@@ -43,6 +43,7 @@ def test_health_is_callable() -> None:
     assert "search_docs" in result.data["tools"]
     assert "list_sources" in result.data["tools"]
     assert "get_source" in result.data["tools"]
+    assert "draft_remove_source" in result.data["tools"]
     assert executed == []
 
 
@@ -187,6 +188,54 @@ def test_get_source_returns_text_and_copied_metadata() -> None:
     assert executed == []
     assert server.executed == []
     assert server.drafts() == ()
+
+
+def test_draft_remove_source_stays_pending_and_keeps_the_corpus() -> None:
+    ingester = Ingester()
+    ingester.add("policy-a", POLICY, metadata={"tenant": "acme"})
+    ingester.add("handbook-1", HANDBOOK)
+    executed: list[dict[str, str]] = []
+    server = MCPServer(
+        retriever=Retriever(ingester),
+        executor=executed.append,
+        ingester=ingester,
+    )
+
+    result = server.call("draft_remove_source", {"source_id": " policy-a "})
+    assert result.ok is True
+    assert result.draft is True
+    assert result.data["status"] == "pending"
+    assert result.data["executed"] is False
+    assert result.data["action"] == "remove_source"
+    assert result.data["target"] == "policy-a"
+    assert result.data["draft_id"] == "draft-1"
+    assert [document.source_id for document in ingester.documents] == ["policy-a", "handbook-1"]
+    assert any(chunk.source_id == "policy-a" for chunk in ingester.chunks)
+    assert server.drafts() == (
+        {
+            "draft_id": "draft-1",
+            "action": "remove_source",
+            "target": "policy-a",
+            "status": "pending",
+        },
+    )
+
+    missing = MCPServer(retriever=Retriever(ingester))
+    no_ingester = missing.call("draft_remove_source", {"source_id": "policy-a"})
+    assert no_ingester.ok is False
+    assert no_ingester.draft is False
+    assert "ingester" in no_ingester.data["error"]
+
+    unknown = server.call("draft_remove_source", {"source_id": "missing"})
+    assert unknown.ok is False
+    assert "unknown source" in unknown.data["error"]
+    blank = server.call("draft_remove_source", {"source_id": "  "})
+    assert blank.ok is False
+    assert "source_id" in blank.data["error"]
+    assert executed == []
+    assert server.executed == []
+    assert len(server.drafts()) == 1
+    assert [document.source_id for document in ingester.documents] == ["policy-a", "handbook-1"]
 
 
 def test_draft_action_returns_draft_and_does_not_execute() -> None:

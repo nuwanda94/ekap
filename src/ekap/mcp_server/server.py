@@ -80,6 +80,11 @@ class MCPServer:
                 "Draft a mutating action. Does not execute it.",
                 mutates=True,
             ),
+            ToolSpec(
+                "draft_remove_source",
+                "Draft withdrawal of one ingested source. Does not remove it.",
+                mutates=True,
+            ),
         )
 
     def call(self, name: str, arguments: dict[str, Any] | None = None) -> ToolResult:
@@ -95,6 +100,8 @@ class MCPServer:
             return self._get_source(args)
         if name == "draft_action":
             return self._draft_action(args)
+        if name == "draft_remove_source":
+            return self._draft_remove_source(args)
         return ToolResult(name=name, ok=False, data={"error": f"unknown tool: {name}"})
 
     def drafts(self) -> tuple[dict[str, str], ...]:
@@ -217,24 +224,51 @@ class MCPServer:
             return ToolResult(name="draft_action", ok=False, data={"error": "action is required"})
         if not isinstance(target, str) or not target.strip():
             return ToolResult(name="draft_action", ok=False, data={"error": "target is required"})
-        draft = _ActionDraft(
-            draft_id=f"draft-{len(self._drafts) + 1}",
-            action=action.strip(),
-            target=target.strip(),
-        )
-        self._drafts.append(draft)
+        draft = self._record_draft(action.strip(), target.strip())
         return ToolResult(
             name="draft_action",
             ok=True,
             draft=True,
-            data={
-                "draft_id": draft.draft_id,
-                "action": draft.action,
-                "target": draft.target,
-                "status": draft.status,
-                "executed": False,
-            },
+            data=_draft_payload(draft),
         )
+
+    def _draft_remove_source(self, args: dict[str, Any]) -> ToolResult:
+        source_id = args.get("source_id", "")
+        if not isinstance(source_id, str) or not source_id.strip():
+            return ToolResult(
+                name="draft_remove_source",
+                ok=False,
+                data={"error": "source_id is required"},
+            )
+        cleaned_id = source_id.strip()
+        if self._ingester is None:
+            return ToolResult(
+                name="draft_remove_source",
+                ok=False,
+                data={"error": "no ingester configured"},
+            )
+        if _find_source(self._ingester, cleaned_id) is None:
+            return ToolResult(
+                name="draft_remove_source",
+                ok=False,
+                data={"error": f"unknown source: {cleaned_id}"},
+            )
+        draft = self._record_draft("remove_source", cleaned_id)
+        return ToolResult(
+            name="draft_remove_source",
+            ok=True,
+            draft=True,
+            data=_draft_payload(draft),
+        )
+
+    def _record_draft(self, action: str, target: str) -> _ActionDraft:
+        draft = _ActionDraft(
+            draft_id=f"draft-{len(self._drafts) + 1}",
+            action=action,
+            target=target,
+        )
+        self._drafts.append(draft)
+        return draft
 
 
 def _find_source(ingester: Ingester, source_id: str) -> Document | None:
@@ -242,6 +276,16 @@ def _find_source(ingester: Ingester, source_id: str) -> Document | None:
         if document.source_id == source_id:
             return document
     return None
+
+
+def _draft_payload(draft: _ActionDraft) -> dict[str, Any]:
+    return {
+        "draft_id": draft.draft_id,
+        "action": draft.action,
+        "target": draft.target,
+        "status": draft.status,
+        "executed": False,
+    }
 
 
 def _citation_payload(citation: Any) -> dict[str, Any]:
