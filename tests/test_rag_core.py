@@ -123,5 +123,5 @@ def test_query_filters_by_document_metadata() -> None:
     assert "manager approval" in citations[0].snippet
     assert retriever.query("expense reports", metadata={"tenant": "missing"}) == []
 
-    with pytest.raises(ValueError):
+    with pytest.raises(TypeError):
         retriever.query("expense reports", metadata={"tenant": 1})  # type: ignore[dict-item]

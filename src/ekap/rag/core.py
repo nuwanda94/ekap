@@ -151,7 +151,7 @@ def _normalize_metadata_filter(metadata: dict[str, str] | None) -> dict[str, str
         if not isinstance(key, str) or not key.strip():
             raise ValueError("metadata keys must be non-empty strings")
         if not isinstance(value, str):
-            raise ValueError("metadata values must be strings")
+            raise TypeError("metadata values must be strings")
         cleaned[key.strip()] = value
     return cleaned
 
