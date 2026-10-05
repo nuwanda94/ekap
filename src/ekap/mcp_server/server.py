@@ -6,7 +6,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-from ekap.rag import Retriever
+from ekap.rag import Ingester, Retriever
 
 Executor = Callable[[dict[str, Any]], Any]
 
@@ -49,9 +49,11 @@ class MCPServer:
         self,
         retriever: Retriever | None = None,
         executor: Executor | None = None,
+        ingester: Ingester | None = None,
     ) -> None:
         self._retriever = retriever
         self._executor = executor
+        self._ingester = ingester
         self._drafts: list[_ActionDraft] = []
         self.executed: list[dict[str, Any]] = []
 
@@ -61,6 +63,11 @@ class MCPServer:
             ToolSpec(
                 "search_docs",
                 "Search ingested documents and return ranked citations.",
+                mutates=False,
+            ),
+            ToolSpec(
+                "list_sources",
+                "List ingested sources, optionally filtered by metadata.",
                 mutates=False,
             ),
             ToolSpec(
@@ -77,6 +84,8 @@ class MCPServer:
             return self._health(args)
         if name == "search_docs":
             return self._search_docs(args)
+        if name == "list_sources":
+            return self._list_sources(args)
         if name == "draft_action":
             return self._draft_action(args)
         return ToolResult(name=name, ok=False, data={"error": f"unknown tool: {name}"})
@@ -133,6 +142,36 @@ class MCPServer:
             data={
                 "query": query,
                 "citations": [_citation_payload(citation) for citation in citations],
+            },
+        )
+
+    def _list_sources(self, args: dict[str, Any]) -> ToolResult:
+        metadata = args.get("metadata")
+        metadata_error = _metadata_error(metadata)
+        if metadata_error is not None:
+            return ToolResult(name="list_sources", ok=False, data={"error": metadata_error})
+        if self._ingester is None:
+            return ToolResult(
+                name="list_sources",
+                ok=False,
+                data={"error": "no ingester configured"},
+            )
+        try:
+            documents = self._ingester.find(metadata=metadata)
+        except (TypeError, ValueError) as exc:
+            return ToolResult(name="list_sources", ok=False, data={"error": str(exc)})
+        return ToolResult(
+            name="list_sources",
+            ok=True,
+            data={
+                "sources": [
+                    {
+                        "source_id": document.source_id,
+                        "metadata": dict(document.metadata),
+                        "chars": len(document.text),
+                    }
+                    for document in documents
+                ]
             },
         )
 

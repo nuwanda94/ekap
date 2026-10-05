@@ -29,7 +29,7 @@ def _server() -> tuple[MCPServer, list[dict[str, str]]]:
         executed.append(payload)
         return payload
 
-    return MCPServer(retriever=Retriever(ingester), executor=executor), executed
+    return MCPServer(retriever=Retriever(ingester), executor=executor, ingester=ingester), executed
 
 
 def test_health_is_callable() -> None:
@@ -41,6 +41,7 @@ def test_health_is_callable() -> None:
     assert result.data["status"] == "ok"
     assert result.data["echo"] == "ping"
     assert "search_docs" in result.data["tools"]
+    assert "list_sources" in result.data["tools"]
     assert executed == []
 
 
@@ -106,6 +107,43 @@ def test_search_docs_citations_include_source_metadata() -> None:
     handbook = server.call("search_docs", {"query": "unused vacation", "top_k": 1})
     assert handbook.data["citations"][0]["source_id"] == "handbook-1"
     assert handbook.data["citations"][0]["metadata"] == {}
+
+
+def test_list_sources_filters_by_metadata_without_executing() -> None:
+    ingester = Ingester()
+    ingester.add("policy-a", POLICY, metadata={"tenant": "acme", "kind": "policy"})
+    ingester.add("policy-b", BETA_POLICY, metadata={"tenant": "beta", "kind": "policy"})
+    ingester.add("handbook-1", HANDBOOK, metadata={"tenant": "acme", "kind": "handbook"})
+    executed: list[dict[str, str]] = []
+    server = MCPServer(
+        retriever=Retriever(ingester),
+        executor=executed.append,
+        ingester=ingester,
+    )
+
+    result = server.call("list_sources", {"metadata": {"tenant": "acme"}})
+    assert result.ok is True
+    assert result.draft is False
+    assert [item["source_id"] for item in result.data["sources"]] == ["policy-a", "handbook-1"]
+    assert result.data["sources"][0]["metadata"] == {"tenant": "acme", "kind": "policy"}
+    assert result.data["sources"][0]["chars"] == len(POLICY)
+    result.data["sources"][0]["metadata"]["tenant"] = "mutated"
+
+    again = server.call("list_sources", {"metadata": {"tenant": "acme", "kind": "policy"}})
+    assert [item["source_id"] for item in again.data["sources"]] == ["policy-a"]
+    assert again.data["sources"][0]["metadata"] == {"tenant": "acme", "kind": "policy"}
+
+    missing = MCPServer(retriever=Retriever(ingester))
+    no_ingester = missing.call("list_sources")
+    assert no_ingester.ok is False
+    assert "ingester" in no_ingester.data["error"]
+
+    bad = server.call("list_sources", {"metadata": ["tenant"]})
+    assert bad.ok is False
+    assert "metadata" in bad.data["error"]
+    assert executed == []
+    assert server.executed == []
+    assert server.drafts() == ()
 
 
 def test_draft_action_returns_draft_and_does_not_execute() -> None:
