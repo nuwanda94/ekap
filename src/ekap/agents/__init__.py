@@ -10,6 +10,7 @@ from ekap.agents.orchestrator import (
     TraceEvent,
     queue_mutation_drafts,
 )
+from ekap.agents.source_removal import source_removal_executor
 
 __all__ = [
     "ApprovalGate",
@@ -22,4 +23,5 @@ __all__ = [
     "RunTrace",
     "TraceEvent",
     "queue_mutation_drafts",
+    "source_removal_executor",
 ]
