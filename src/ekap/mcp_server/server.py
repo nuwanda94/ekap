@@ -81,6 +81,11 @@ class MCPServer:
                 mutates=False,
             ),
             ToolSpec(
+                "get_draft",
+                "Fetch one recorded action draft by id. Does not execute it.",
+                mutates=False,
+            ),
+            ToolSpec(
                 "draft_action",
                 "Draft a mutating action. Does not execute it.",
                 mutates=True,
@@ -105,6 +110,8 @@ class MCPServer:
             return self._get_source(args)
         if name == "list_drafts":
             return self._list_drafts(args)
+        if name == "get_draft":
+            return self._get_draft(args)
         if name == "draft_action":
             return self._draft_action(args)
         if name == "draft_remove_source":
@@ -246,6 +253,27 @@ class MCPServer:
                     for draft in self._drafts
                 ]
             },
+        )
+
+    def _get_draft(self, args: dict[str, Any]) -> ToolResult:
+        extra = set(args) - {"draft_id"}
+        if extra:
+            return ToolResult(
+                name="get_draft",
+                ok=False,
+                data={"error": "get_draft only accepts draft_id"},
+            )
+        draft_id = args.get("draft_id", "")
+        if not isinstance(draft_id, str) or not draft_id.strip():
+            return ToolResult(name="get_draft", ok=False, data={"error": "draft_id is required"})
+        cleaned_id = draft_id.strip()
+        for draft in self._drafts:
+            if draft.draft_id == cleaned_id:
+                return ToolResult(name="get_draft", ok=True, data=_draft_payload(draft))
+        return ToolResult(
+            name="get_draft",
+            ok=False,
+            data={"error": f"unknown draft: {cleaned_id}"},
         )
 
     def _draft_action(self, args: dict[str, Any]) -> ToolResult:

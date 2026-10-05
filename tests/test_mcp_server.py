@@ -44,6 +44,7 @@ def test_health_is_callable() -> None:
     assert "list_sources" in result.data["tools"]
     assert "get_source" in result.data["tools"]
     assert "list_drafts" in result.data["tools"]
+    assert "get_draft" in result.data["tools"]
     assert "draft_remove_source" in result.data["tools"]
     assert executed == []
 
@@ -237,6 +238,57 @@ def test_list_drafts_returns_recorded_drafts_without_executing() -> None:
     assert bad.ok is False
     assert bad.draft is False
     assert "no arguments" in bad.data["error"]
+    assert executed == []
+    assert server.executed == []
+    assert [document.source_id for document in ingester.documents] == ["policy-a"]
+    assert len(server.drafts()) == 2
+
+
+def test_get_draft_returns_one_recorded_draft_without_executing() -> None:
+    ingester = Ingester()
+    ingester.add("policy-a", POLICY, metadata={"tenant": "acme"})
+    executed: list[dict[str, str]] = []
+    server = MCPServer(
+        retriever=Retriever(ingester),
+        executor=executed.append,
+        ingester=ingester,
+    )
+    filed = server.call("draft_action", {"action": "file_expense", "target": "report-42"})
+    removed = server.call("draft_remove_source", {"source_id": "policy-a"})
+    assert filed.ok and removed.ok
+
+    result = server.call("get_draft", {"draft_id": " draft-2 "})
+    assert result.ok is True
+    assert result.draft is False
+    assert result.data == {
+        "draft_id": "draft-2",
+        "action": "remove_source",
+        "target": "policy-a",
+        "status": "pending",
+        "executed": False,
+    }
+    result.data["target"] = "mutated"
+    again = server.call("get_draft", {"draft_id": "draft-2"})
+    assert again.data["target"] == "policy-a"
+    first = server.call("get_draft", {"draft_id": "draft-1"})
+    assert first.data["action"] == "file_expense"
+    assert first.data["target"] == "report-42"
+
+    unknown = server.call("get_draft", {"draft_id": "draft-9"})
+    assert unknown.ok is False
+    assert unknown.draft is False
+    assert "unknown draft" in unknown.data["error"]
+    blank = server.call("get_draft", {"draft_id": "  "})
+    assert blank.ok is False
+    assert "draft_id" in blank.data["error"]
+    missing = server.call("get_draft")
+    assert missing.ok is False
+    assert "draft_id" in missing.data["error"]
+    extra = server.call("get_draft", {"draft_id": "draft-1", "execute": True})
+    assert extra.ok is False
+    assert extra.draft is False
+    assert "draft_id" in extra.data["error"]
+
     assert executed == []
     assert server.executed == []
     assert [document.source_id for document in ingester.documents] == ["policy-a"]
