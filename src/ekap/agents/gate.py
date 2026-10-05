@@ -33,7 +33,7 @@ class DecisionRecord:
 
 
 class ApprovalGate:
-    """draft → approve → execute, or reject without touching external state."""
+    """draft → approve → execute, or reject/cancel without touching external state."""
 
     def __init__(self, executor: Executor | None = None) -> None:
         self._executor = executor
@@ -109,20 +109,11 @@ class ApprovalGate:
 
     def reject(self, action_id: str, reason: str = "") -> PendingAction:
         """Mark a pending action rejected. Does not call the executor."""
-        current = self._require_pending(action_id)
-        if not isinstance(reason, str):
-            raise TypeError("reason must be a string")
-        rejected = PendingAction(
-            action_id=current.action_id,
-            action=current.action,
-            target=current.target,
-            payload=dict(current.payload),
-            status="rejected",
-            reason=reason.strip(),
-        )
-        self._actions[action_id] = rejected
-        self._record(rejected)
-        return rejected
+        return self._close(action_id, "rejected", reason)
+
+    def cancel(self, action_id: str, reason: str = "") -> PendingAction:
+        """Mark a pending action cancelled. Does not call the executor."""
+        return self._close(action_id, "cancelled", reason)
 
     def get(self, action_id: str) -> PendingAction:
         if action_id not in self._actions:
@@ -132,6 +123,22 @@ class ApprovalGate:
     def decisions(self) -> tuple[DecisionRecord, ...]:
         """Return gate transitions in the order they were recorded."""
         return tuple(self._decisions)
+
+    def _close(self, action_id: str, status: str, reason: str) -> PendingAction:
+        current = self._require_pending(action_id)
+        if not isinstance(reason, str):
+            raise TypeError("reason must be a string")
+        closed = PendingAction(
+            action_id=current.action_id,
+            action=current.action,
+            target=current.target,
+            payload=dict(current.payload),
+            status=status,
+            reason=reason.strip(),
+        )
+        self._actions[action_id] = closed
+        self._record(closed)
+        return closed
 
     def _record(self, action: PendingAction) -> None:
         self._decisions.append(

@@ -148,3 +148,37 @@ def test_submit_draft_rejects_non_pending_without_recording() -> None:
     assert ledger == []
     assert server.executed == []
     assert server.drafts()[0]["status"] == "cancelled"
+
+
+def test_cancel_leaves_external_state_unchanged() -> None:
+    ledger: list[str] = ["initial"]
+    gate = ApprovalGate(executor=lambda body: ledger.append(body["target"]))
+    pending = gate.draft("file_expense", "travel-report", {"amount": 640})
+    kept = gate.draft("delete_record", "policy-1")
+
+    cancelled = gate.cancel(pending.action_id, reason="  requester withdrew  ")
+    assert cancelled.status == "cancelled"
+    assert cancelled.reason == "requester withdrew"
+    assert cancelled.payload == {"amount": 640}
+    assert gate.get(pending.action_id).status == "cancelled"
+    assert gate.get(kept.action_id).status == "pending"
+    assert gate.executed == []
+    assert ledger == ["initial"]
+
+    with pytest.raises(ValueError, match="not pending"):
+        gate.approve(pending.action_id)
+    with pytest.raises(ValueError, match="not pending"):
+        gate.cancel(pending.action_id)
+    with pytest.raises(KeyError, match="unknown action"):
+        gate.cancel("action-99")
+    with pytest.raises(TypeError, match="reason must be a string"):
+        gate.cancel(kept.action_id, reason=1)  # type: ignore[arg-type]
+
+    assert gate.get(kept.action_id).status == "pending"
+    assert gate.executed == []
+    assert ledger == ["initial"]
+    assert [(item.action_id, item.status, item.reason) for item in gate.decisions()] == [
+        ("action-1", "pending", ""),
+        ("action-2", "pending", ""),
+        ("action-1", "cancelled", "requester withdrew"),
+    ]
