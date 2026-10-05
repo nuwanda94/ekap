@@ -139,3 +139,33 @@ def test_citation_carries_source_metadata() -> None:
     again = Retriever(ingester).query_with_citations("manager approval", top_k=1)
     assert again[0].metadata == {"tenant": "acme", "kind": "policy"}
     assert cite(ingester.chunks[0]).metadata == {}
+
+
+def test_find_lists_sources_by_metadata() -> None:
+    ingester = Ingester()
+    ingester.add("policy-a", POLICY, metadata={"tenant": "acme", "kind": "policy"})
+    ingester.add("handbook-1", HANDBOOK, metadata={"tenant": "acme", "kind": "handbook"})
+    ingester.add("policy-b", BETA_POLICY, metadata={"tenant": "beta", "kind": "policy"})
+
+    everything = ingester.find()
+    assert [document.source_id for document in everything] == [
+        "policy-a",
+        "handbook-1",
+        "policy-b",
+    ]
+
+    beta = ingester.find(metadata={" tenant ": "beta"})
+    assert [document.source_id for document in beta] == ["policy-b"]
+    assert beta[0].text == BETA_POLICY
+    assert beta[0].metadata == {"tenant": "beta", "kind": "policy"}
+
+    acme_policies = ingester.find(metadata={"tenant": "acme", "kind": "policy"})
+    assert [document.source_id for document in acme_policies] == ["policy-a"]
+    assert ingester.find(metadata={"tenant": "missing"}) == ()
+
+    beta[0].metadata["tenant"] = "mutated"
+    stored = ingester.find(metadata={"tenant": "beta"})
+    assert stored[0].metadata == {"tenant": "beta", "kind": "policy"}
+
+    with pytest.raises(TypeError):
+        ingester.find(metadata={"tenant": 1})  # type: ignore[dict-item]

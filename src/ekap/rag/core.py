@@ -119,6 +119,19 @@ class Ingester:
         self._chunks = [chunk for chunk in self._chunks if chunk.source_id != cleaned_id]
         return document
 
+    def find(self, *, metadata: dict[str, str] | None = None) -> tuple[Document, ...]:
+        """Return ingested documents whose metadata matches every filter pair.
+
+        An empty filter returns every source, in insertion order. Each result is a
+        copy, so mutating the returned metadata cannot change the stored corpus.
+        """
+        required = _normalize_metadata_filter(metadata)
+        return tuple(
+            _copy_document(document)
+            for document in self._documents.values()
+            if not required or _metadata_matches(document, required)
+        )
+
     def _split(self, document: Document) -> list[Chunk]:
         text = document.text.strip()
         size = self.chunk_size
@@ -142,6 +155,14 @@ class Ingester:
             )
             for index, piece in enumerate(pieces)
         ]
+
+
+def _copy_document(document: Document) -> Document:
+    return Document(
+        source_id=document.source_id,
+        text=document.text,
+        metadata=dict(document.metadata),
+    )
 
 
 def _require_source_id(source_id: str) -> str:
