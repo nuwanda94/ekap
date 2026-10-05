@@ -76,6 +76,11 @@ class MCPServer:
                 mutates=False,
             ),
             ToolSpec(
+                "list_drafts",
+                "List recorded action drafts. Does not execute them.",
+                mutates=False,
+            ),
+            ToolSpec(
                 "draft_action",
                 "Draft a mutating action. Does not execute it.",
                 mutates=True,
@@ -98,6 +103,8 @@ class MCPServer:
             return self._list_sources(args)
         if name == "get_source":
             return self._get_source(args)
+        if name == "list_drafts":
+            return self._list_drafts(args)
         if name == "draft_action":
             return self._draft_action(args)
         if name == "draft_remove_source":
@@ -214,6 +221,30 @@ class MCPServer:
                 "text": document.text,
                 "metadata": dict(document.metadata),
                 "chars": len(document.text),
+            },
+        )
+
+    def _list_drafts(self, args: dict[str, Any]) -> ToolResult:
+        if args:
+            return ToolResult(
+                name="list_drafts",
+                ok=False,
+                data={"error": "list_drafts takes no arguments"},
+            )
+        return ToolResult(
+            name="list_drafts",
+            ok=True,
+            data={
+                "drafts": [
+                    {
+                        "draft_id": draft.draft_id,
+                        "action": draft.action,
+                        "target": draft.target,
+                        "status": draft.status,
+                        "executed": False,
+                    }
+                    for draft in self._drafts
+                ]
             },
         )
 

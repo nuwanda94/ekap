@@ -43,6 +43,7 @@ def test_health_is_callable() -> None:
     assert "search_docs" in result.data["tools"]
     assert "list_sources" in result.data["tools"]
     assert "get_source" in result.data["tools"]
+    assert "list_drafts" in result.data["tools"]
     assert "draft_remove_source" in result.data["tools"]
     assert executed == []
 
@@ -188,6 +189,58 @@ def test_get_source_returns_text_and_copied_metadata() -> None:
     assert executed == []
     assert server.executed == []
     assert server.drafts() == ()
+
+
+def test_list_drafts_returns_recorded_drafts_without_executing() -> None:
+    ingester = Ingester()
+    ingester.add("policy-a", POLICY, metadata={"tenant": "acme"})
+    executed: list[dict[str, str]] = []
+    server = MCPServer(
+        retriever=Retriever(ingester),
+        executor=executed.append,
+        ingester=ingester,
+    )
+
+    empty = server.call("list_drafts")
+    assert empty.ok is True
+    assert empty.draft is False
+    assert empty.data == {"drafts": []}
+
+    filed = server.call("draft_action", {"action": "file_expense", "target": "report-42"})
+    removed = server.call("draft_remove_source", {"source_id": "policy-a"})
+    assert filed.ok and removed.ok
+
+    listed = server.call("list_drafts")
+    assert listed.ok is True
+    assert listed.draft is False
+    assert listed.data["drafts"] == [
+        {
+            "draft_id": "draft-1",
+            "action": "file_expense",
+            "target": "report-42",
+            "status": "pending",
+            "executed": False,
+        },
+        {
+            "draft_id": "draft-2",
+            "action": "remove_source",
+            "target": "policy-a",
+            "status": "pending",
+            "executed": False,
+        },
+    ]
+    listed.data["drafts"][0]["target"] = "mutated"
+    again = server.call("list_drafts")
+    assert again.data["drafts"][0]["target"] == "report-42"
+
+    bad = server.call("list_drafts", {"status": "pending"})
+    assert bad.ok is False
+    assert bad.draft is False
+    assert "no arguments" in bad.data["error"]
+    assert executed == []
+    assert server.executed == []
+    assert [document.source_id for document in ingester.documents] == ["policy-a"]
+    assert len(server.drafts()) == 2
 
 
 def test_draft_remove_source_stays_pending_and_keeps_the_corpus() -> None:
