@@ -132,15 +132,7 @@ class MCPServer:
             ok=True,
             data={
                 "query": query,
-                "citations": [
-                    {
-                        "source_id": citation.source_id,
-                        "snippet": citation.snippet,
-                        "chunk_id": citation.chunk_id,
-                        "score": citation.score,
-                    }
-                    for citation in citations
-                ],
+                "citations": [_citation_payload(citation) for citation in citations],
             },
         )
 
@@ -169,6 +161,17 @@ class MCPServer:
                 "executed": False,
             },
         )
+
+
+def _citation_payload(citation: Any) -> dict[str, Any]:
+    """Serialize a citation, copying metadata so callers cannot mutate the source."""
+    return {
+        "source_id": citation.source_id,
+        "snippet": citation.snippet,
+        "chunk_id": citation.chunk_id,
+        "score": citation.score,
+        "metadata": dict(citation.metadata),
+    }
 
 
 def _metadata_error(metadata: object) -> str | None:

@@ -54,6 +54,7 @@ def test_search_docs_returns_ranked_citation() -> None:
     assert citations[0]["source_id"] == "policy-1"
     assert "manager approval" in citations[0]["snippet"]
     assert citations[0]["score"] > 0
+    assert citations[0]["metadata"] == {}
 
 
 def test_search_docs_filters_by_metadata() -> None:
@@ -87,6 +88,24 @@ def test_search_docs_filters_by_metadata() -> None:
     assert bad.ok is False
     assert "metadata" in bad.data["error"]
     assert server.executed == []
+
+
+def test_search_docs_citations_include_source_metadata() -> None:
+    ingester = Ingester()
+    ingester.add("policy-a", POLICY, metadata={"tenant": "acme", "kind": "policy"})
+    ingester.add("handbook-1", HANDBOOK)
+    server = MCPServer(retriever=Retriever(ingester))
+    result = server.call("search_docs", {"query": "manager approval", "top_k": 1})
+    assert result.ok is True
+    item = result.data["citations"][0]
+    assert item["source_id"] == "policy-a"
+    assert item["metadata"] == {"tenant": "acme", "kind": "policy"}
+    item["metadata"]["tenant"] = "mutated"
+    again = server.call("search_docs", {"query": "manager approval", "top_k": 1})
+    assert again.data["citations"][0]["metadata"] == {"tenant": "acme", "kind": "policy"}
+    handbook = server.call("search_docs", {"query": "unused vacation", "top_k": 1})
+    assert handbook.data["citations"][0]["source_id"] == "handbook-1"
+    assert handbook.data["citations"][0]["metadata"] == {}
 
 
 def test_draft_action_returns_draft_and_does_not_execute() -> None:
