@@ -6,7 +6,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-from ekap.rag import Ingester, Retriever
+from ekap.rag import Document, Ingester, Retriever
 
 Executor = Callable[[dict[str, Any]], Any]
 
@@ -71,6 +71,11 @@ class MCPServer:
                 mutates=False,
             ),
             ToolSpec(
+                "get_source",
+                "Fetch one ingested source by id, including text and metadata.",
+                mutates=False,
+            ),
+            ToolSpec(
                 "draft_action",
                 "Draft a mutating action. Does not execute it.",
                 mutates=True,
@@ -86,6 +91,8 @@ class MCPServer:
             return self._search_docs(args)
         if name == "list_sources":
             return self._list_sources(args)
+        if name == "get_source":
+            return self._get_source(args)
         if name == "draft_action":
             return self._draft_action(args)
         return ToolResult(name=name, ok=False, data={"error": f"unknown tool: {name}"})
@@ -175,6 +182,34 @@ class MCPServer:
             },
         )
 
+    def _get_source(self, args: dict[str, Any]) -> ToolResult:
+        source_id = args.get("source_id", "")
+        if not isinstance(source_id, str) or not source_id.strip():
+            return ToolResult(name="get_source", ok=False, data={"error": "source_id is required"})
+        if self._ingester is None:
+            return ToolResult(
+                name="get_source",
+                ok=False,
+                data={"error": "no ingester configured"},
+            )
+        document = _find_source(self._ingester, source_id.strip())
+        if document is None:
+            return ToolResult(
+                name="get_source",
+                ok=False,
+                data={"error": f"unknown source: {source_id.strip()}"},
+            )
+        return ToolResult(
+            name="get_source",
+            ok=True,
+            data={
+                "source_id": document.source_id,
+                "text": document.text,
+                "metadata": dict(document.metadata),
+                "chars": len(document.text),
+            },
+        )
+
     def _draft_action(self, args: dict[str, Any]) -> ToolResult:
         action = args.get("action", "")
         target = args.get("target", "")
@@ -200,6 +235,13 @@ class MCPServer:
                 "executed": False,
             },
         )
+
+
+def _find_source(ingester: Ingester, source_id: str) -> Document | None:
+    for document in ingester.documents:
+        if document.source_id == source_id:
+            return document
+    return None
 
 
 def _citation_payload(citation: Any) -> dict[str, Any]:

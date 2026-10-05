@@ -42,6 +42,7 @@ def test_health_is_callable() -> None:
     assert result.data["echo"] == "ping"
     assert "search_docs" in result.data["tools"]
     assert "list_sources" in result.data["tools"]
+    assert "get_source" in result.data["tools"]
     assert executed == []
 
 
@@ -141,6 +142,48 @@ def test_list_sources_filters_by_metadata_without_executing() -> None:
     bad = server.call("list_sources", {"metadata": ["tenant"]})
     assert bad.ok is False
     assert "metadata" in bad.data["error"]
+    assert executed == []
+    assert server.executed == []
+    assert server.drafts() == ()
+
+
+def test_get_source_returns_text_and_copied_metadata() -> None:
+    ingester = Ingester()
+    ingester.add("policy-a", POLICY, metadata={"tenant": "acme", "kind": "policy"})
+    ingester.add("handbook-1", HANDBOOK)
+    executed: list[dict[str, str]] = []
+    server = MCPServer(
+        retriever=Retriever(ingester),
+        executor=executed.append,
+        ingester=ingester,
+    )
+
+    result = server.call("get_source", {"source_id": " policy-a "})
+    assert result.ok is True
+    assert result.draft is False
+    assert result.data["source_id"] == "policy-a"
+    assert result.data["text"] == POLICY
+    assert result.data["chars"] == len(POLICY)
+    assert result.data["metadata"] == {"tenant": "acme", "kind": "policy"}
+    result.data["metadata"]["tenant"] = "mutated"
+
+    again = server.call("get_source", {"source_id": "policy-a"})
+    assert again.data["metadata"] == {"tenant": "acme", "kind": "policy"}
+    handbook = server.call("get_source", {"source_id": "handbook-1"})
+    assert handbook.data["text"] == HANDBOOK
+    assert handbook.data["metadata"] == {}
+
+    missing = MCPServer(retriever=Retriever(ingester))
+    no_ingester = missing.call("get_source", {"source_id": "policy-a"})
+    assert no_ingester.ok is False
+    assert "ingester" in no_ingester.data["error"]
+
+    unknown = server.call("get_source", {"source_id": "missing"})
+    assert unknown.ok is False
+    assert "unknown source" in unknown.data["error"]
+    blank = server.call("get_source", {"source_id": "  "})
+    assert blank.ok is False
+    assert "source_id" in blank.data["error"]
     assert executed == []
     assert server.executed == []
     assert server.drafts() == ()
