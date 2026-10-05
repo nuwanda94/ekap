@@ -39,13 +39,21 @@ class Citation:
     snippet: str
     chunk_id: str
     score: float
+    metadata: dict[str, str] = field(default_factory=dict)
 
 
-def cite(chunk: Chunk, *, score: float = 0.0, max_snippet: int = 240) -> Citation:
+def cite(
+    chunk: Chunk,
+    *,
+    score: float = 0.0,
+    max_snippet: int = 240,
+    metadata: dict[str, str] | None = None,
+) -> Citation:
     """Build a citation object from a chunk.
 
     The snippet is the chunk text, truncated so callers can embed it in an answer
-    without copying the whole source.
+    without copying the whole source. Metadata is copied so later mutation of the
+    caller's map cannot change the citation.
     """
     if max_snippet < 1:
         raise ValueError("max_snippet must be >= 1")
@@ -57,6 +65,7 @@ def cite(chunk: Chunk, *, score: float = 0.0, max_snippet: int = 240) -> Citatio
         snippet=snippet,
         chunk_id=chunk.chunk_id,
         score=score,
+        metadata=dict(metadata or {}),
     )
 
 
@@ -210,7 +219,18 @@ class Retriever:
         top_k: int = 3,
         metadata: dict[str, str] | None = None,
     ) -> list[Citation]:
+        documents = {document.source_id: document for document in self._ingester.documents}
         return [
-            cite(hit.chunk, score=hit.score)
+            cite(
+                hit.chunk,
+                score=hit.score,
+                metadata=_source_metadata(documents.get(hit.chunk.source_id)),
+            )
             for hit in self.query(text, top_k=top_k, metadata=metadata)
         ]
+
+
+def _source_metadata(document: Document | None) -> dict[str, str]:
+    if document is None:
+        return {}
+    return document.metadata

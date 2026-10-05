@@ -125,3 +125,17 @@ def test_query_filters_by_document_metadata() -> None:
 
     with pytest.raises(TypeError):
         retriever.query("expense reports", metadata={"tenant": 1})  # type: ignore[dict-item]
+
+
+def test_citation_carries_source_metadata() -> None:
+    ingester = Ingester()
+    ingester.add("policy-a", POLICY, metadata={"tenant": "acme", "kind": "policy"})
+    ingester.add("handbook-1", HANDBOOK)
+    citations = Retriever(ingester).query_with_citations("manager approval", top_k=1)
+    assert len(citations) == 1
+    assert citations[0].source_id == "policy-a"
+    assert citations[0].metadata == {"tenant": "acme", "kind": "policy"}
+    citations[0].metadata["tenant"] = "mutated"
+    again = Retriever(ingester).query_with_citations("manager approval", top_k=1)
+    assert again[0].metadata == {"tenant": "acme", "kind": "policy"}
+    assert cite(ingester.chunks[0]).metadata == {}
