@@ -1,1 +1,1 @@
-PLACEHOLDER
+LOAD:/tmp/server.py
