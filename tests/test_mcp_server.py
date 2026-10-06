@@ -48,6 +48,7 @@ def test_health_is_callable() -> None:
     assert "find_chunks" in result.data["tools"]
     assert "count_phrase" in result.data["tools"]
     assert "overlap_sources" in result.data["tools"]
+    assert "token_stats" in result.data["tools"]
     assert "list_drafts" in result.data["tools"]
     assert "get_draft" in result.data["tools"]
     assert "cancel_draft" in result.data["tools"]
@@ -700,3 +701,89 @@ def test_overlap_sources_counts_shared_tokens_without_returning_text() -> None:
     assert server.drafts() == ()
     assert [document.source_id for document in ingester.documents] == before
     assert list(ingester.chunks) == stored
+
+
+def test_token_stats_counts_tokens_without_returning_text() -> None:
+    ingester = Ingester()
+    executed: list[dict[str, str]] = []
+    server = MCPServer(
+        retriever=Retriever(ingester),
+        executor=executed.append,
+        ingester=ingester,
+    )
+    ingester.add("policy-1", POLICY)
+    ingester.add("handbook-1", HANDBOOK)
+    before = [document.source_id for document in ingester.documents]
+    stored = list(ingester.chunks)
+
+    result = server.call("token_stats", {"source_id": " handbook-1 "})
+    assert result.ok is True
+    assert result.draft is False
+    assert result.data["source_id"] == "handbook-1"
+    assert result.data["executed"] is False
+    assert result.data["limit"] == 5
+    assert result.data["unique"] >= 1
+    assert result.data["tokens"] >= result.data["unique"]
+    assert "text" not in result.data
+    top = {item["token"]: item["count"] for item in result.data["top"]}
+    assert top["vacation"] == 2
+    assert top["days"] == 2
+    assert all(
+        item["token"].isalnum() and item["token"] == item["token"].lower()
+        for item in result.data["top"]
+    )
+    assert result.data["top"] == sorted(
+        result.data["top"],
+        key=lambda item: (-item["count"], item["token"]),
+    )
+
+    limited = server.call("token_stats", {"source_id": "handbook-1", "limit": 1})
+    assert limited.ok is True
+    assert limited.draft is False
+    assert limited.data["limit"] == 1
+    assert len(limited.data["top"]) == 1
+    assert limited.data["top"][0]["token"] == "days"
+    assert limited.data["tokens"] == result.data["tokens"]
+
+    no_ingester = MCPServer(retriever=Retriever(ingester)).call(
+        "token_stats",
+        {"source_id": "handbook-1"},
+    )
+    assert no_ingester.ok is False
+    assert no_ingester.draft is False
+    assert "ingester" in no_ingester.data["error"]
+
+    blank = server.call("token_stats", {"source_id": "  "})
+    assert blank.ok is False
+    assert blank.draft is False
+    assert "source_id" in blank.data["error"]
+
+    unknown = server.call("token_stats", {"source_id": "missing"})
+    assert unknown.ok is False
+    assert unknown.draft is False
+    assert "unknown source" in unknown.data["error"]
+
+    bad_limit = server.call("token_stats", {"source_id": "handbook-1", "limit": 0})
+    assert bad_limit.ok is False
+    assert bad_limit.draft is False
+    assert "limit" in bad_limit.data["error"]
+    bad_bool = server.call("token_stats", {"source_id": "handbook-1", "limit": True})
+    assert bad_bool.ok is False
+    assert "limit" in bad_bool.data["error"]
+
+    extra = server.call("token_stats", {"source_id": "handbook-1", "execute": True})
+    assert extra.ok is False
+    assert extra.draft is False
+    assert "source_id" in extra.data["error"]
+
+    advertised = server.call("describe_tool", {"name": "token_stats"})
+    assert advertised.ok is True
+    assert advertised.data["mutates"] is False
+    assert advertised.data["executed"] is False
+
+    assert executed == []
+    assert server.executed == []
+    assert server.drafts() == ()
+    assert [document.source_id for document in ingester.documents] == before
+    assert list(ingester.chunks) == stored
+

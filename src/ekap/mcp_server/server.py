@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
@@ -113,6 +114,11 @@ class MCPServer:
                 mutates=False,
             ),
             ToolSpec(
+                "token_stats",
+                "Count alphanumeric tokens in one source. Does not return source text.",
+                mutates=False,
+            ),
+            ToolSpec(
                 "list_drafts",
                 "List recorded action drafts, optionally by status. Does not execute them.",
                 mutates=False,
@@ -179,6 +185,8 @@ class MCPServer:
             return self._count_phrase(args)
         if name == "overlap_sources":
             return self._overlap_sources(args)
+        if name == "token_stats":
+            return self._token_stats(args)
         if name == "list_drafts":
             return self._list_drafts(args)
         if name == "get_draft":
@@ -962,6 +970,57 @@ class MCPServer:
             },
         )
 
+    def _token_stats(self, args: dict[str, Any]) -> ToolResult:
+        extra = set(args) - {"source_id", "limit"}
+        if extra:
+            return ToolResult(
+                name="token_stats",
+                ok=False,
+                data={"error": "token_stats only accepts source_id and limit"},
+            )
+        source_id = args.get("source_id", "")
+        if not isinstance(source_id, str) or not source_id.strip():
+            return ToolResult(
+                name="token_stats",
+                ok=False,
+                data={"error": "source_id is required"},
+            )
+        limit = args.get("limit", 5)
+        if isinstance(limit, bool) or not isinstance(limit, int) or limit < 1:
+            return ToolResult(
+                name="token_stats",
+                ok=False,
+                data={"error": "limit must be >= 1"},
+            )
+        if self._ingester is None:
+            return ToolResult(
+                name="token_stats",
+                ok=False,
+                data={"error": "no ingester configured"},
+            )
+        cleaned_id = source_id.strip()
+        document = _find_source(self._ingester, cleaned_id)
+        if document is None:
+            return ToolResult(
+                name="token_stats",
+                ok=False,
+                data={"error": f"unknown source: {cleaned_id}"},
+            )
+        counts = _alnum_token_counts(document.text)
+        ranked = sorted(counts.items(), key=lambda item: (-item[1], item[0]))[:limit]
+        return ToolResult(
+            name="token_stats",
+            ok=True,
+            data={
+                "source_id": document.source_id,
+                "tokens": sum(counts.values()),
+                "unique": len(counts),
+                "limit": limit,
+                "top": [{"token": token, "count": count} for token, count in ranked],
+                "executed": False,
+            },
+        )
+
     def _record_draft(self, action: str, target: str) -> _ActionDraft:
         draft = _ActionDraft(
             draft_id=f"draft-{len(self._drafts) + 1}",
@@ -980,6 +1039,11 @@ _ALNUM = re.compile(r"[A-Za-z0-9]+")
 def _alnum_tokens(text: str) -> set[str]:
     """Lowercase alphanumeric tokens. Punctuation is not part of a token."""
     return {match.group(0).lower() for match in _ALNUM.finditer(text)}
+
+
+def _alnum_token_counts(text: str) -> Counter[str]:
+    """Occurrence counts of lowercase alphanumeric tokens."""
+    return Counter(match.group(0).lower() for match in _ALNUM.finditer(text))
 
 
 def _phrase_snippet(text: str, phrase: str, window: int = 24) -> str:
