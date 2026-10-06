@@ -45,6 +45,7 @@ def test_health_is_callable() -> None:
     assert "list_chunks" in result.data["tools"]
     assert "get_chunk" in result.data["tools"]
     assert "get_chunk_context" in result.data["tools"]
+    assert "find_chunks" in result.data["tools"]
     assert "list_drafts" in result.data["tools"]
     assert "get_draft" in result.data["tools"]
     assert "cancel_draft" in result.data["tools"]
@@ -418,3 +419,92 @@ def test_get_chunk_context_returns_neighbors_without_changing_the_corpus() -> No
     assert server.drafts() == ()
     assert [document.source_id for document in ingester.documents] == before
     assert list(ingester.chunks) == stored
+
+
+def test_find_chunks_matches_a_phrase_without_changing_the_corpus() -> None:
+    ingester = Ingester(chunk_size=40, chunk_overlap=0)
+    executed: list[dict[str, str]] = []
+    server = MCPServer(
+        retriever=Retriever(ingester),
+        executor=executed.append,
+        ingester=ingester,
+    )
+
+    empty = server.call("find_chunks", {"phrase": "vacation"})
+    assert empty.ok is True
+    assert empty.draft is False
+    assert empty.data["chunks"] == []
+    assert empty.data["total"] == 0
+    assert empty.data["executed"] is False
+
+    ingester.add("policy-a", POLICY, metadata={"tenant": "acme", "kind": "policy"})
+    ingester.add("handbook-1", HANDBOOK, metadata={"tenant": "acme", "kind": "handbook"})
+    before = [document.source_id for document in ingester.documents]
+    stored = list(ingester.chunks)
+
+    result = server.call("find_chunks", {"phrase": " Unused Vacation "})
+    assert result.ok is True
+    assert result.draft is False
+    assert result.data["phrase"] == "Unused Vacation"
+    assert result.data["executed"] is False
+    assert result.data["total"] >= 1
+    assert all(item["source_id"] == "handbook-1" for item in result.data["chunks"])
+    assert any("vacation" in item["snippet"].lower() for item in result.data["chunks"])
+
+    limited = server.call("find_chunks", {"phrase": "a", "limit": 1})
+    assert limited.ok is True
+    assert limited.data["total"] == 1
+
+    scoped = server.call(
+        "find_chunks",
+        {"phrase": "vacation", "source_id": "policy-a"},
+    )
+    assert scoped.ok is True
+    assert scoped.data["chunks"] == []
+    assert scoped.data["total"] == 0
+
+    filtered = server.call(
+        "find_chunks",
+        {"phrase": "approval", "metadata": {"kind": "handbook"}},
+    )
+    assert filtered.ok is True
+    assert filtered.data["chunks"] == []
+
+    no_ingester = MCPServer(retriever=Retriever(ingester)).call(
+        "find_chunks",
+        {"phrase": "vacation"},
+    )
+    assert no_ingester.ok is False
+    assert "ingester" in no_ingester.data["error"]
+
+    blank = server.call("find_chunks", {"phrase": "  "})
+    assert blank.ok is False
+    assert "phrase" in blank.data["error"]
+
+    unknown = server.call("find_chunks", {"phrase": "vacation", "source_id": "missing"})
+    assert unknown.ok is False
+    assert "unknown source" in unknown.data["error"]
+
+    bad_limit = server.call("find_chunks", {"phrase": "vacation", "limit": 0})
+    assert bad_limit.ok is False
+    assert "limit" in bad_limit.data["error"]
+    bad_bool = server.call("find_chunks", {"phrase": "vacation", "limit": True})
+    assert bad_bool.ok is False
+    assert "limit" in bad_bool.data["error"]
+
+    extra = server.call("find_chunks", {"phrase": "vacation", "execute": True})
+    assert extra.ok is False
+    assert extra.draft is False
+    assert "phrase" in extra.data["error"]
+
+    advertised = server.call("describe_tool", {"name": "find_chunks"})
+    assert advertised.ok is True
+    assert advertised.data["mutates"] is False
+    assert advertised.data["executed"] is False
+
+    assert executed == []
+    assert server.executed == []
+    assert server.drafts() == ()
+    assert [document.source_id for document in ingester.documents] == before
+    assert list(ingester.chunks) == stored
+

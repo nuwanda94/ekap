@@ -97,6 +97,11 @@ class MCPServer:
                 mutates=False,
             ),
             ToolSpec(
+                "find_chunks",
+                "Find chunks containing a literal phrase. Does not change them.",
+                mutates=False,
+            ),
+            ToolSpec(
                 "list_drafts",
                 "List recorded action drafts, optionally by status. Does not execute them.",
                 mutates=False,
@@ -157,6 +162,8 @@ class MCPServer:
             return self._get_chunk(args)
         if name == "get_chunk_context":
             return self._get_chunk_context(args)
+        if name == "find_chunks":
+            return self._find_chunks(args)
         if name == "list_drafts":
             return self._list_drafts(args)
         if name == "get_draft":
@@ -501,7 +508,91 @@ class MCPServer:
             },
         )
 
+    def _find_chunks(self, args: dict[str, Any]) -> ToolResult:
+        extra = set(args) - {"phrase", "source_id", "metadata", "limit"}
+        if extra:
+            return ToolResult(
+                name="find_chunks",
+                ok=False,
+                data={"error": "find_chunks only accepts phrase, source_id, metadata, and limit"},
+            )
+        phrase = args.get("phrase", "")
+        if not isinstance(phrase, str) or not phrase.strip():
+            return ToolResult(name="find_chunks", ok=False, data={"error": "phrase is required"})
+        needle = phrase.strip()
+        source_id = args.get("source_id")
+        cleaned_id: str | None
+        if source_id is None:
+            cleaned_id = None
+        elif not isinstance(source_id, str) or not source_id.strip():
+            return ToolResult(
+                name="find_chunks",
+                ok=False,
+                data={"error": "source_id is required"},
+            )
+        else:
+            cleaned_id = source_id.strip()
+        metadata = args.get("metadata")
+        metadata_error = _metadata_error(metadata)
+        if metadata_error is not None:
+            return ToolResult(name="find_chunks", ok=False, data={"error": metadata_error})
+        limit = args.get("limit")
+        if limit is not None and (isinstance(limit, bool) or not isinstance(limit, int) or limit < 1):
+            return ToolResult(
+                name="find_chunks",
+                ok=False,
+                data={"error": "limit must be an integer >= 1"},
+            )
+        if self._ingester is None:
+            return ToolResult(
+                name="find_chunks",
+                ok=False,
+                data={"error": "no ingester configured"},
+            )
+        if cleaned_id is not None and _find_source(self._ingester, cleaned_id) is None:
+            return ToolResult(
+                name="find_chunks",
+                ok=False,
+                data={"error": f"unknown source: {cleaned_id}"},
+            )
+        try:
+            documents = self._ingester.find(metadata=metadata)
+        except (TypeError, ValueError) as exc:
+            return ToolResult(name="find_chunks", ok=False, data={"error": str(exc)})
+        source_ids = {document.source_id for document in documents}
+        if cleaned_id is not None:
+            source_ids &= {cleaned_id}
+        lowered = needle.lower()
+        matches = []
+        for chunk in self._ingester.chunks:
+            if chunk.source_id not in source_ids:
+                continue
+            if lowered not in chunk.text.lower():
+                continue
+            matches.append(
+                {
+                    "chunk_id": chunk.chunk_id,
+                    "source_id": chunk.source_id,
+                    "index": chunk.index,
+                    "chars": len(chunk.text),
+                    "snippet": _phrase_snippet(chunk.text, needle),
+                }
+            )
+            if limit is not None and len(matches) >= limit:
+                break
+        return ToolResult(
+            name="find_chunks",
+            ok=True,
+            data={
+                "phrase": needle,
+                "chunks": matches,
+                "total": len(matches),
+                "executed": False,
+            },
+        )
+
     def _list_drafts(self, args: dict[str, Any]) -> ToolResult:
+
         extra = set(args) - {"status"}
         if extra:
             return ToolResult(
@@ -733,6 +824,22 @@ class MCPServer:
         )
         self._drafts.append(draft)
         return draft
+
+
+
+def _phrase_snippet(text: str, phrase: str, window: int = 24) -> str:
+    """Return a short copy of text around the first case-insensitive phrase hit."""
+    start = text.lower().find(phrase.lower())
+    if start < 0:
+        return text[:window]
+    left = max(0, start - window)
+    right = min(len(text), start + len(phrase) + window)
+    snippet = text[left:right].strip()
+    if left > 0:
+        snippet = "…" + snippet
+    if right < len(text):
+        snippet = snippet + "…"
+    return snippet
 
 
 def _find_source(ingester: Ingester, source_id: str) -> Document | None:
