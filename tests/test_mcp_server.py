@@ -47,6 +47,7 @@ def test_health_is_callable() -> None:
     assert "get_draft" in result.data["tools"]
     assert "cancel_draft" in result.data["tools"]
     assert "summarize_drafts" in result.data["tools"]
+    assert "describe_tool" in result.data["tools"]
     assert "draft_remove_source" in result.data["tools"]
     assert executed == []
 
@@ -523,3 +524,61 @@ def test_unknown_tool_and_missing_args_fail_closed() -> None:
     assert executed == []
     with pytest.raises(TypeError):
         server.call()  # type: ignore[call-arg]
+
+
+def test_describe_tool_returns_spec_without_executing() -> None:
+    ingester = Ingester()
+    ingester.add("policy-a", POLICY, metadata={"tenant": "acme"})
+    executed: list[dict[str, str]] = []
+    server = MCPServer(
+        retriever=Retriever(ingester),
+        executor=executed.append,
+        ingester=ingester,
+    )
+    filed = server.call("draft_action", {"action": "file_expense", "target": "report-42"})
+    assert filed.ok
+
+    health = server.call("describe_tool", {"name": " health "})
+    assert health.ok is True
+    assert health.draft is False
+    assert health.data == {
+        "name": "health",
+        "description": "Liveness check for the tool server.",
+        "mutates": False,
+        "executed": False,
+    }
+    health.data["description"] = "mutated"
+    again = server.call("describe_tool", {"name": "health"})
+    assert again.data["description"] == "Liveness check for the tool server."
+
+    mutating = server.call("describe_tool", {"name": "draft_action"})
+    assert mutating.ok is True
+    assert mutating.draft is False
+    assert mutating.data["name"] == "draft_action"
+    assert mutating.data["mutates"] is True
+    assert mutating.data["executed"] is False
+    assert "Does not execute" in mutating.data["description"]
+
+    unknown = server.call("describe_tool", {"name": "delete_all"})
+    assert unknown.ok is False
+    assert unknown.draft is False
+    assert "unknown tool" in unknown.data["error"]
+    blank = server.call("describe_tool", {"name": "  "})
+    assert blank.ok is False
+    assert "name" in blank.data["error"]
+    missing = server.call("describe_tool")
+    assert missing.ok is False
+    assert "name" in missing.data["error"]
+    typed = server.call("describe_tool", {"name": 1})
+    assert typed.ok is False
+    assert "name" in typed.data["error"]
+    extra = server.call("describe_tool", {"name": "health", "execute": True})
+    assert extra.ok is False
+    assert extra.draft is False
+    assert "name" in extra.data["error"]
+
+    assert executed == []
+    assert server.executed == []
+    assert [document.source_id for document in ingester.documents] == ["policy-a"]
+    assert len(server.drafts()) == 1
+    assert server.drafts()[0]["status"] == "pending"

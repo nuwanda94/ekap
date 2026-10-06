@@ -97,6 +97,11 @@ class MCPServer:
                 mutates=False,
             ),
             ToolSpec(
+                "describe_tool",
+                "Describe one advertised tool. Does not call it.",
+                mutates=False,
+            ),
+            ToolSpec(
                 "draft_action",
                 "Draft a mutating action. Does not execute it.",
                 mutates=True,
@@ -127,6 +132,8 @@ class MCPServer:
             return self._cancel_draft(args)
         if name == "summarize_drafts":
             return self._summarize_drafts(args)
+        if name == "describe_tool":
+            return self._describe_tool(args)
         if name == "draft_action":
             return self._draft_action(args)
         if name == "draft_remove_source":
@@ -363,6 +370,36 @@ class MCPServer:
             name="summarize_drafts",
             ok=True,
             data={"pending": pending, "cancelled": cancelled, "total": pending + cancelled},
+        )
+
+    def _describe_tool(self, args: dict[str, Any]) -> ToolResult:
+        extra = set(args) - {"name"}
+        if extra:
+            return ToolResult(
+                name="describe_tool",
+                ok=False,
+                data={"error": "describe_tool only accepts name"},
+            )
+        tool_name = args.get("name", "")
+        if not isinstance(tool_name, str) or not tool_name.strip():
+            return ToolResult(name="describe_tool", ok=False, data={"error": "name is required"})
+        cleaned = tool_name.strip()
+        for spec in self.list_tools():
+            if spec.name == cleaned:
+                return ToolResult(
+                    name="describe_tool",
+                    ok=True,
+                    data={
+                        "name": spec.name,
+                        "description": spec.description,
+                        "mutates": spec.mutates,
+                        "executed": False,
+                    },
+                )
+        return ToolResult(
+            name="describe_tool",
+            ok=False,
+            data={"error": f"unknown tool: {cleaned}"},
         )
 
     def _draft_action(self, args: dict[str, Any]) -> ToolResult:
