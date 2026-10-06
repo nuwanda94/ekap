@@ -210,10 +210,17 @@ class Retriever:
         *,
         top_k: int = 3,
         metadata: dict[str, str] | None = None,
+        min_score: float = 0.0,
     ) -> list[ScoredChunk]:
-        """Rank chunks. When metadata is set, every pair must match the source."""
+        """Rank chunks. When metadata is set, every pair must match the source.
+
+        Chunks whose token-overlap ratio is below min_score are omitted. The
+        corpus is not changed. A non-numeric score or a value outside 0 to 1
+        fails closed.
+        """
         if top_k < 1:
             raise ValueError("top_k must be >= 1")
+        threshold = _require_min_score(min_score)
         required = _normalize_metadata_filter(metadata)
         query_tokens = _tokens(text)
         if not query_tokens:
@@ -229,7 +236,10 @@ class Retriever:
             overlap = sum(1 for token in query_tokens if token in chunk_tokens)
             if overlap == 0:
                 continue
-            scored.append(ScoredChunk(chunk=chunk, score=overlap / len(query_tokens)))
+            score = overlap / len(query_tokens)
+            if score < threshold:
+                continue
+            scored.append(ScoredChunk(chunk=chunk, score=score))
         scored.sort(key=lambda hit: (-hit.score, hit.chunk.source_id, hit.chunk.index))
         return scored[:top_k]
 
@@ -239,6 +249,7 @@ class Retriever:
         *,
         top_k: int = 3,
         metadata: dict[str, str] | None = None,
+        min_score: float = 0.0,
     ) -> list[Citation]:
         documents = {document.source_id: document for document in self._ingester.documents}
         return [
@@ -247,8 +258,21 @@ class Retriever:
                 score=hit.score,
                 metadata=_source_metadata(documents.get(hit.chunk.source_id)),
             )
-            for hit in self.query(text, top_k=top_k, metadata=metadata)
+            for hit in self.query(
+                text,
+                top_k=top_k,
+                metadata=metadata,
+                min_score=min_score,
+            )
         ]
+
+
+def _require_min_score(min_score: float) -> float:
+    if isinstance(min_score, bool) or not isinstance(min_score, (int, float)):
+        raise TypeError("min_score must be a number")
+    if min_score < 0 or min_score > 1:
+        raise ValueError("min_score must be between 0 and 1")
+    return float(min_score)
 
 
 def _source_metadata(document: Document | None) -> dict[str, str]:
