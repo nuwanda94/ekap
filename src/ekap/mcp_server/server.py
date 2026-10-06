@@ -9,6 +9,7 @@ from typing import Any
 from ekap.rag import Document, Ingester, Retriever
 
 Executor = Callable[[dict[str, Any]], Any]
+_DRAFT_STATUSES = frozenset({"pending", "cancelled"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -77,7 +78,7 @@ class MCPServer:
             ),
             ToolSpec(
                 "list_drafts",
-                "List recorded action drafts. Does not execute them.",
+                "List recorded action drafts, optionally by status. Does not execute them.",
                 mutates=False,
             ),
             ToolSpec(
@@ -246,12 +247,31 @@ class MCPServer:
         )
 
     def _list_drafts(self, args: dict[str, Any]) -> ToolResult:
-        if args:
+        extra = set(args) - {"status"}
+        if extra:
             return ToolResult(
                 name="list_drafts",
                 ok=False,
-                data={"error": "list_drafts takes no arguments"},
+                data={"error": "list_drafts only accepts status"},
             )
+        status = args.get("status")
+        cleaned: str | None
+        if status is None:
+            cleaned = None
+        elif not isinstance(status, str):
+            return ToolResult(
+                name="list_drafts",
+                ok=False,
+                data={"error": "status must be a string"},
+            )
+        else:
+            cleaned = status.strip()
+            if cleaned not in _DRAFT_STATUSES:
+                return ToolResult(
+                    name="list_drafts",
+                    ok=False,
+                    data={"error": "status must be pending or cancelled"},
+                )
         return ToolResult(
             name="list_drafts",
             ok=True,
@@ -265,6 +285,7 @@ class MCPServer:
                         "executed": False,
                     }
                     for draft in self._drafts
+                    if cleaned is None or draft.status == cleaned
                 ]
             },
         )

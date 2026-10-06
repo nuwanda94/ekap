@@ -236,14 +236,64 @@ def test_list_drafts_returns_recorded_drafts_without_executing() -> None:
     again = server.call("list_drafts")
     assert again.data["drafts"][0]["target"] == "report-42"
 
-    bad = server.call("list_drafts", {"status": "pending"})
+    bad = server.call("list_drafts", {"execute": True})
     assert bad.ok is False
     assert bad.draft is False
-    assert "no arguments" in bad.data["error"]
+    assert "status" in bad.data["error"]
     assert executed == []
     assert server.executed == []
     assert [document.source_id for document in ingester.documents] == ["policy-a"]
     assert len(server.drafts()) == 2
+
+
+def test_list_drafts_filters_by_status_without_executing() -> None:
+    ingester = Ingester()
+    ingester.add("policy-a", POLICY, metadata={"tenant": "acme"})
+    executed: list[dict[str, str]] = []
+    server = MCPServer(
+        retriever=Retriever(ingester),
+        executor=executed.append,
+        ingester=ingester,
+    )
+    filed = server.call("draft_action", {"action": "file_expense", "target": "report-42"})
+    removed = server.call("draft_remove_source", {"source_id": "policy-a"})
+    assert filed.ok and removed.ok
+    cancelled = server.call("cancel_draft", {"draft_id": "draft-2"})
+    assert cancelled.ok
+
+    pending = server.call("list_drafts", {"status": " pending "})
+    assert pending.ok is True
+    assert pending.draft is False
+    assert [item["draft_id"] for item in pending.data["drafts"]] == ["draft-1"]
+    assert pending.data["drafts"][0]["status"] == "pending"
+    assert pending.data["drafts"][0]["executed"] is False
+    pending.data["drafts"][0]["target"] = "mutated"
+
+    cancelled_only = server.call("list_drafts", {"status": "cancelled"})
+    assert cancelled_only.ok is True
+    assert [item["draft_id"] for item in cancelled_only.data["drafts"]] == ["draft-2"]
+    assert cancelled_only.data["drafts"][0]["status"] == "cancelled"
+    assert cancelled_only.data["drafts"][0]["target"] == "policy-a"
+
+    blank = server.call("list_drafts", {"status": "  "})
+    assert blank.ok is False
+    assert blank.draft is False
+    assert "status" in blank.data["error"]
+    unknown = server.call("list_drafts", {"status": "executed"})
+    assert unknown.ok is False
+    assert "status" in unknown.data["error"]
+    typed = server.call("list_drafts", {"status": 1})
+    assert typed.ok is False
+    assert "status" in typed.data["error"]
+    extra = server.call("list_drafts", {"status": "pending", "execute": True})
+    assert extra.ok is False
+    assert extra.draft is False
+    assert "status" in extra.data["error"]
+
+    assert executed == []
+    assert server.executed == []
+    assert [document.source_id for document in ingester.documents] == ["policy-a"]
+    assert [item["status"] for item in server.drafts()] == ["pending", "cancelled"]
 
 
 def test_get_draft_returns_one_recorded_draft_without_executing() -> None:
