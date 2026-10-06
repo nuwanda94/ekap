@@ -47,6 +47,7 @@ def test_health_is_callable() -> None:
     assert "get_chunk_context" in result.data["tools"]
     assert "find_chunks" in result.data["tools"]
     assert "count_phrase" in result.data["tools"]
+    assert "overlap_sources" in result.data["tools"]
     assert "list_drafts" in result.data["tools"]
     assert "get_draft" in result.data["tools"]
     assert "cancel_draft" in result.data["tools"]
@@ -611,6 +612,85 @@ def test_count_phrase_groups_hits_without_returning_text() -> None:
     assert "phrase" in extra.data["error"]
 
     advertised = server.call("describe_tool", {"name": "count_phrase"})
+    assert advertised.ok is True
+    assert advertised.data["mutates"] is False
+    assert advertised.data["executed"] is False
+
+    assert executed == []
+    assert server.executed == []
+    assert server.drafts() == ()
+    assert [document.source_id for document in ingester.documents] == before
+    assert list(ingester.chunks) == stored
+
+def test_overlap_sources_counts_shared_tokens_without_returning_text() -> None:
+    ingester = Ingester()
+    executed: list[dict[str, str]] = []
+    server = MCPServer(
+        retriever=Retriever(ingester),
+        executor=executed.append,
+        ingester=ingester,
+    )
+
+    missing = server.call("overlap_sources", {"left": "policy-1", "right": "handbook-1"})
+    assert missing.ok is False
+    assert missing.draft is False
+    assert "unknown source" in missing.data["error"]
+
+    ingester.add("policy-1", POLICY, metadata={"tenant": "acme"})
+    ingester.add("handbook-1", HANDBOOK, metadata={"tenant": "acme"})
+    ingester.add("policy-b", BETA_POLICY, metadata={"tenant": "beta"})
+    before = [document.source_id for document in ingester.documents]
+    stored = list(ingester.chunks)
+
+    result = server.call("overlap_sources", {"left": " policy-1 ", "right": "policy-b"})
+    assert result.ok is True
+    assert result.draft is False
+    assert result.data["left"] == "policy-1"
+    assert result.data["right"] == "policy-b"
+    assert result.data["executed"] is False
+    assert "travel" in result.data["shared"]
+    assert "portal" in result.data["shared"]
+    assert "manager" not in result.data["shared"]
+    assert "director" not in result.data["shared"]
+    assert result.data["shared"] == sorted(result.data["shared"])
+    assert result.data["shared_count"] == len(result.data["shared"])
+    assert result.data["left_only"] >= 1
+    assert result.data["right_only"] >= 1
+    assert "text" not in result.data
+    assert all(token.isalnum() and token == token.lower() for token in result.data["shared"])
+
+    no_ingester = MCPServer(retriever=Retriever(ingester)).call(
+        "overlap_sources",
+        {"left": "policy-1", "right": "handbook-1"},
+    )
+    assert no_ingester.ok is False
+    assert no_ingester.draft is False
+    assert "ingester" in no_ingester.data["error"]
+
+    blank = server.call("overlap_sources", {"left": "  ", "right": "handbook-1"})
+    assert blank.ok is False
+    assert blank.draft is False
+    assert "left" in blank.data["error"]
+
+    same = server.call("overlap_sources", {"left": "policy-1", "right": " policy-1 "})
+    assert same.ok is False
+    assert same.draft is False
+    assert "different" in same.data["error"]
+
+    unknown = server.call("overlap_sources", {"left": "policy-1", "right": "missing"})
+    assert unknown.ok is False
+    assert unknown.draft is False
+    assert "unknown source" in unknown.data["error"]
+
+    extra = server.call(
+        "overlap_sources",
+        {"left": "policy-1", "right": "handbook-1", "execute": True},
+    )
+    assert extra.ok is False
+    assert extra.draft is False
+    assert "left" in extra.data["error"]
+
+    advertised = server.call("describe_tool", {"name": "overlap_sources"})
     assert advertised.ok is True
     assert advertised.data["mutates"] is False
     assert advertised.data["executed"] is False

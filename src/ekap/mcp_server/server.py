@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
@@ -107,6 +108,11 @@ class MCPServer:
                 mutates=False,
             ),
             ToolSpec(
+                "overlap_sources",
+                "Compare alphanumeric tokens shared by two sources. Does not return source text.",
+                mutates=False,
+            ),
+            ToolSpec(
                 "list_drafts",
                 "List recorded action drafts, optionally by status. Does not execute them.",
                 mutates=False,
@@ -171,6 +177,8 @@ class MCPServer:
             return self._find_chunks(args)
         if name == "count_phrase":
             return self._count_phrase(args)
+        if name == "overlap_sources":
+            return self._overlap_sources(args)
         if name == "list_drafts":
             return self._list_drafts(args)
         if name == "get_draft":
@@ -895,6 +903,65 @@ class MCPServer:
             data=_draft_payload(draft),
         )
 
+    def _overlap_sources(self, args: dict[str, Any]) -> ToolResult:
+        extra = set(args) - {"left", "right"}
+        if extra:
+            return ToolResult(
+                name="overlap_sources",
+                ok=False,
+                data={"error": "overlap_sources only accepts left and right"},
+            )
+        left = args.get("left", "")
+        right = args.get("right", "")
+        if not isinstance(left, str) or not left.strip():
+            return ToolResult(name="overlap_sources", ok=False, data={"error": "left is required"})
+        if not isinstance(right, str) or not right.strip():
+            return ToolResult(name="overlap_sources", ok=False, data={"error": "right is required"})
+        left_id = left.strip()
+        right_id = right.strip()
+        if left_id == right_id:
+            return ToolResult(
+                name="overlap_sources",
+                ok=False,
+                data={"error": "left and right must be different sources"},
+            )
+        if self._ingester is None:
+            return ToolResult(
+                name="overlap_sources",
+                ok=False,
+                data={"error": "no ingester configured"},
+            )
+        left_doc = _find_source(self._ingester, left_id)
+        if left_doc is None:
+            return ToolResult(
+                name="overlap_sources",
+                ok=False,
+                data={"error": f"unknown source: {left_id}"},
+            )
+        right_doc = _find_source(self._ingester, right_id)
+        if right_doc is None:
+            return ToolResult(
+                name="overlap_sources",
+                ok=False,
+                data={"error": f"unknown source: {right_id}"},
+            )
+        left_tokens = _alnum_tokens(left_doc.text)
+        right_tokens = _alnum_tokens(right_doc.text)
+        shared = sorted(left_tokens & right_tokens)
+        return ToolResult(
+            name="overlap_sources",
+            ok=True,
+            data={
+                "left": left_doc.source_id,
+                "right": right_doc.source_id,
+                "shared": shared,
+                "shared_count": len(shared),
+                "left_only": len(left_tokens - right_tokens),
+                "right_only": len(right_tokens - left_tokens),
+                "executed": False,
+            },
+        )
+
     def _record_draft(self, action: str, target: str) -> _ActionDraft:
         draft = _ActionDraft(
             draft_id=f"draft-{len(self._drafts) + 1}",
@@ -904,6 +971,15 @@ class MCPServer:
         self._drafts.append(draft)
         return draft
 
+
+
+
+_ALNUM = re.compile(r"[A-Za-z0-9]+")
+
+
+def _alnum_tokens(text: str) -> set[str]:
+    """Lowercase alphanumeric tokens. Punctuation is not part of a token."""
+    return {match.group(0).lower() for match in _ALNUM.finditer(text)}
 
 
 def _phrase_snippet(text: str, phrase: str, window: int = 24) -> str:
