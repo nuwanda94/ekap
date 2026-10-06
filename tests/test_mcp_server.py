@@ -110,3 +110,47 @@ def test_summarize_sources_counts_without_changing_the_corpus() -> None:
     assert server.drafts() == ()
     assert [document.source_id for document in ingester.documents] == before
     assert len(ingester.chunks) == chunk_count
+
+
+def test_search_docs_drops_hits_below_min_score() -> None:
+    server, executed = _server()
+    unfiltered = server.call("search_docs", {"query": "unused vacation", "top_k": 3})
+    assert unfiltered.ok is True
+    assert unfiltered.draft is False
+    assert unfiltered.data["min_score"] == 0.0
+    assert any(item["source_id"] == "handbook-1" for item in unfiltered.data["citations"])
+
+    filtered = server.call(
+        "search_docs",
+        {"query": "unused vacation", "top_k": 3, "min_score": 1.0},
+    )
+    assert filtered.ok is True
+    assert filtered.draft is False
+    assert filtered.data["min_score"] == 1.0
+    assert filtered.data["citations"]
+    assert all(item["score"] >= 1.0 for item in filtered.data["citations"])
+    assert all(item["source_id"] == "handbook-1" for item in filtered.data["citations"])
+
+    weak = server.call(
+        "search_docs",
+        {"query": "unused vacation manager portal", "top_k": 3, "min_score": 0.75},
+    )
+    assert weak.ok is True
+    assert weak.data["citations"] == []
+
+    bad_type = server.call("search_docs", {"query": "vacation", "min_score": True})
+    assert bad_type.ok is False
+    assert bad_type.draft is False
+    assert "min_score" in bad_type.data["error"]
+
+    bad_range = server.call("search_docs", {"query": "vacation", "min_score": 1.5})
+    assert bad_range.ok is False
+    assert bad_range.draft is False
+    assert "between 0 and 1" in bad_range.data["error"]
+
+    sources = server.call("list_sources")
+    assert sources.ok is True
+    assert [item["source_id"] for item in sources.data["sources"]] == ["policy-1", "handbook-1"]
+    assert executed == []
+    assert server.executed == []
+    assert server.drafts() == ()

@@ -63,7 +63,7 @@ class MCPServer:
             ToolSpec("health", "Liveness check for the tool server.", mutates=False),
             ToolSpec(
                 "search_docs",
-                "Search ingested documents and return ranked citations.",
+                "Search ingested documents and return ranked citations above an optional min_score.",
                 mutates=False,
             ),
             ToolSpec(
@@ -186,6 +186,10 @@ class MCPServer:
         metadata_error = _metadata_error(metadata)
         if metadata_error is not None:
             return ToolResult(name="search_docs", ok=False, data={"error": metadata_error})
+        min_score = args.get("min_score", 0.0)
+        score_error = _min_score_error(min_score)
+        if score_error is not None:
+            return ToolResult(name="search_docs", ok=False, data={"error": score_error})
         if self._retriever is None:
             return ToolResult(
                 name="search_docs",
@@ -197,6 +201,7 @@ class MCPServer:
                 query,
                 top_k=top_k,
                 metadata=metadata,
+                min_score=min_score,
             )
         except (TypeError, ValueError) as exc:
             return ToolResult(name="search_docs", ok=False, data={"error": str(exc)})
@@ -205,6 +210,7 @@ class MCPServer:
             ok=True,
             data={
                 "query": query,
+                "min_score": float(min_score),
                 "citations": [_citation_payload(citation) for citation in citations],
             },
         )
@@ -563,6 +569,15 @@ def _citation_payload(citation: Any) -> dict[str, Any]:
         "score": citation.score,
         "metadata": dict(citation.metadata),
     }
+
+
+def _min_score_error(min_score: object) -> str | None:
+    """Return an error when min_score is present but not in 0 to 1."""
+    if isinstance(min_score, bool) or not isinstance(min_score, (int, float)):
+        return "min_score must be a number"
+    if min_score < 0 or min_score > 1:
+        return "min_score must be between 0 and 1"
+    return None
 
 
 def _metadata_error(metadata: object) -> str | None:
