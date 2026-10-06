@@ -1,7 +1,5 @@
 """Unit tests for the in-process MCP tool server."""
 
-import pytest
-
 from ekap.mcp_server import MCPServer, ToolResult
 from ekap.rag import Ingester, Retriever
 
