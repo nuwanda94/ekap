@@ -44,6 +44,7 @@ def test_health_is_callable() -> None:
     assert "summarize_sources" in result.data["tools"]
     assert "list_chunks" in result.data["tools"]
     assert "get_chunk" in result.data["tools"]
+    assert "get_chunk_context" in result.data["tools"]
     assert "list_drafts" in result.data["tools"]
     assert "get_draft" in result.data["tools"]
     assert "cancel_draft" in result.data["tools"]
@@ -313,6 +314,101 @@ def test_get_chunk_returns_text_without_changing_the_corpus() -> None:
     assert "chunk_id" in extra.data["error"]
 
     advertised = server.call("describe_tool", {"name": "get_chunk"})
+    assert advertised.ok is True
+    assert advertised.data["mutates"] is False
+    assert advertised.data["executed"] is False
+
+    assert executed == []
+    assert server.executed == []
+    assert server.drafts() == ()
+    assert [document.source_id for document in ingester.documents] == before
+    assert list(ingester.chunks) == stored
+
+
+def test_get_chunk_context_returns_neighbors_without_changing_the_corpus() -> None:
+    ingester = Ingester(chunk_size=40, chunk_overlap=0)
+    executed: list[dict[str, str]] = []
+    server = MCPServer(
+        retriever=Retriever(ingester),
+        executor=executed.append,
+        ingester=ingester,
+    )
+
+    missing = server.call("get_chunk_context", {"chunk_id": "policy-a:1"})
+    assert missing.ok is False
+    assert missing.draft is False
+    assert "unknown chunk" in missing.data["error"]
+
+    ingester.add("policy-a", POLICY, metadata={"tenant": "acme", "kind": "policy"})
+    ingester.add("handbook-1", HANDBOOK, metadata={"tenant": "acme", "kind": "handbook"})
+    before = [document.source_id for document in ingester.documents]
+    stored = list(ingester.chunks)
+    policy = [chunk for chunk in stored if chunk.source_id == "policy-a"]
+    assert len(policy) >= 3
+    center = policy[1]
+
+    result = server.call("get_chunk_context", {"chunk_id": f" {center.chunk_id} "})
+    assert result.ok is True
+    assert result.draft is False
+    assert result.data["chunk_id"] == center.chunk_id
+    assert result.data["source_id"] == "policy-a"
+    assert result.data["index"] == center.index
+    assert result.data["radius"] == 1
+    assert result.data["metadata"] == {"tenant": "acme", "kind": "policy"}
+    assert result.data["executed"] is False
+    assert result.data["total"] == 3
+    assert [item["offset"] for item in result.data["chunks"]] == [-1, 0, 1]
+    assert [item["chunk_id"] for item in result.data["chunks"]] == [
+        policy[0].chunk_id,
+        policy[1].chunk_id,
+        policy[2].chunk_id,
+    ]
+    assert all(item["source_id"] == "policy-a" for item in result.data["chunks"])
+    assert result.data["chunks"][1]["text"] == center.text
+    result.data["metadata"]["tenant"] = "mutated"
+    again = server.call("get_chunk_context", {"chunk_id": center.chunk_id, "radius": 0})
+    assert again.ok is True
+    assert again.data["metadata"]["tenant"] == "acme"
+    assert again.data["total"] == 1
+    assert again.data["chunks"][0]["offset"] == 0
+    assert again.data["chunks"][0]["text"] == center.text
+
+    edge = server.call("get_chunk_context", {"chunk_id": policy[0].chunk_id, "radius": 1})
+    assert edge.ok is True
+    assert [item["offset"] for item in edge.data["chunks"]] == [0, 1]
+
+    no_ingester = MCPServer(retriever=Retriever(ingester)).call(
+        "get_chunk_context",
+        {"chunk_id": center.chunk_id},
+    )
+    assert no_ingester.ok is False
+    assert no_ingester.draft is False
+    assert "ingester" in no_ingester.data["error"]
+
+    blank = server.call("get_chunk_context", {"chunk_id": "  "})
+    assert blank.ok is False
+    assert blank.draft is False
+    assert "chunk_id" in blank.data["error"]
+
+    unknown = server.call("get_chunk_context", {"chunk_id": "missing:0"})
+    assert unknown.ok is False
+    assert unknown.draft is False
+    assert "unknown chunk" in unknown.data["error"]
+
+    bad_radius = server.call("get_chunk_context", {"chunk_id": center.chunk_id, "radius": -1})
+    assert bad_radius.ok is False
+    assert bad_radius.draft is False
+    assert "radius" in bad_radius.data["error"]
+    bad_bool = server.call("get_chunk_context", {"chunk_id": center.chunk_id, "radius": True})
+    assert bad_bool.ok is False
+    assert "radius" in bad_bool.data["error"]
+
+    extra = server.call("get_chunk_context", {"chunk_id": center.chunk_id, "execute": True})
+    assert extra.ok is False
+    assert extra.draft is False
+    assert "chunk_id" in extra.data["error"]
+
+    advertised = server.call("describe_tool", {"name": "get_chunk_context"})
     assert advertised.ok is True
     assert advertised.data["mutates"] is False
     assert advertised.data["executed"] is False

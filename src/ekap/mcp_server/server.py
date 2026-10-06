@@ -92,6 +92,11 @@ class MCPServer:
                 mutates=False,
             ),
             ToolSpec(
+                "get_chunk_context",
+                "Fetch one chunk and same-source neighbors. Does not change them.",
+                mutates=False,
+            ),
+            ToolSpec(
                 "list_drafts",
                 "List recorded action drafts, optionally by status. Does not execute them.",
                 mutates=False,
@@ -150,6 +155,8 @@ class MCPServer:
             return self._list_chunks(args)
         if name == "get_chunk":
             return self._get_chunk(args)
+        if name == "get_chunk_context":
+            return self._get_chunk_context(args)
         if name == "list_drafts":
             return self._list_drafts(args)
         if name == "get_draft":
@@ -423,6 +430,75 @@ class MCPServer:
             name="get_chunk",
             ok=False,
             data={"error": f"unknown chunk: {cleaned_id}"},
+        )
+
+
+    def _get_chunk_context(self, args: dict[str, Any]) -> ToolResult:
+        extra = set(args) - {"chunk_id", "radius"}
+        if extra:
+            return ToolResult(
+                name="get_chunk_context",
+                ok=False,
+                data={"error": "get_chunk_context only accepts chunk_id and radius"},
+            )
+        chunk_id = args.get("chunk_id", "")
+        if not isinstance(chunk_id, str) or not chunk_id.strip():
+            return ToolResult(
+                name="get_chunk_context",
+                ok=False,
+                data={"error": "chunk_id is required"},
+            )
+        cleaned_id = chunk_id.strip()
+        radius = args.get("radius", 1)
+        if isinstance(radius, bool) or not isinstance(radius, int) or radius < 0:
+            return ToolResult(
+                name="get_chunk_context",
+                ok=False,
+                data={"error": "radius must be an integer >= 0"},
+            )
+        if self._ingester is None:
+            return ToolResult(
+                name="get_chunk_context",
+                ok=False,
+                data={"error": "no ingester configured"},
+            )
+        center = next(
+            (chunk for chunk in self._ingester.chunks if chunk.chunk_id == cleaned_id),
+            None,
+        )
+        if center is None:
+            return ToolResult(
+                name="get_chunk_context",
+                ok=False,
+                data={"error": f"unknown chunk: {cleaned_id}"},
+            )
+        document = _find_source(self._ingester, center.source_id)
+        metadata = dict(document.metadata) if document is not None else {}
+        neighbors = [
+            {
+                "chunk_id": chunk.chunk_id,
+                "source_id": chunk.source_id,
+                "index": chunk.index,
+                "offset": chunk.index - center.index,
+                "text": chunk.text,
+                "chars": len(chunk.text),
+            }
+            for chunk in self._ingester.chunks
+            if chunk.source_id == center.source_id and abs(chunk.index - center.index) <= radius
+        ]
+        return ToolResult(
+            name="get_chunk_context",
+            ok=True,
+            data={
+                "chunk_id": center.chunk_id,
+                "source_id": center.source_id,
+                "index": center.index,
+                "radius": radius,
+                "metadata": metadata,
+                "chunks": neighbors,
+                "total": len(neighbors),
+                "executed": False,
+            },
         )
 
     def _list_drafts(self, args: dict[str, Any]) -> ToolResult:
