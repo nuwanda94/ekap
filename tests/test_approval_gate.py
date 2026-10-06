@@ -220,3 +220,32 @@ def test_actions_lists_copies_without_executing() -> None:
     assert [item.action_id for item in gate.actions()] == ["action-1", "action-2"]
     assert gate.executed == []
     assert ledger == ["initial"]
+
+
+def test_returned_actions_are_copies() -> None:
+    ledger: list[str] = ["initial"]
+    gate = ApprovalGate(executor=lambda body: ledger.append(body["target"]))
+    drafted = gate.draft("file_expense", "travel-report", {"amount": 640})
+    drafted.payload["amount"] = 0
+    assert gate.get(drafted.action_id).payload == {"amount": 640}
+
+    fetched = gate.get(drafted.action_id)
+    fetched.payload["note"] = "audit"
+    assert gate.get(drafted.action_id).payload == {"amount": 640}
+
+    rejected = gate.reject(drafted.action_id, reason="no")
+    rejected.payload["amount"] = 1
+    assert gate.get(drafted.action_id).payload == {"amount": 640}
+    assert gate.get(drafted.action_id).status == "rejected"
+
+    pending = gate.draft("book_travel", "SFO", {"traveler": "ada"})
+    cancelled = gate.cancel(pending.action_id)
+    cancelled.payload.clear()
+    assert gate.get(pending.action_id).payload == {"traveler": "ada"}
+
+    kept = gate.draft("delete_record", "policy-1", {"keep": True})
+    executed = gate.approve(kept.action_id)
+    executed.payload["keep"] = False
+    assert gate.get(kept.action_id).payload == {"keep": True}
+    assert gate.executed[0]["payload"] == {"keep": True}
+    assert ledger == ["initial", "policy-1"]

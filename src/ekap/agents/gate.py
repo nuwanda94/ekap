@@ -48,7 +48,11 @@ class ApprovalGate:
         target: str,
         payload: Mapping[str, Any] | None = None,
     ) -> PendingAction:
-        """Record a pending action. Does not call the executor."""
+        """Record a pending action. Does not call the executor.
+
+        The returned action is a copy. Mutating its payload does not change
+        the stored record.
+        """
         cleaned_action = _require_text(action, "action")
         cleaned_target = _require_text(target, "target")
         action_id = f"action-{len(self._actions) + 1}"
@@ -60,7 +64,7 @@ class ApprovalGate:
         )
         self._actions[action_id] = pending
         self._record(pending)
-        return pending
+        return _copy_action(pending)
 
     def submit_draft(self, draft: Mapping[str, Any]) -> PendingAction:
         """Queue an already-built tool draft. Does not execute it.
@@ -85,7 +89,11 @@ class ApprovalGate:
         return self.draft(action, target, extra)
 
     def approve(self, action_id: str) -> PendingAction:
-        """Execute a pending action exactly once."""
+        """Execute a pending action exactly once.
+
+        The returned action is a copy. Mutating its payload does not change
+        the stored record.
+        """
         current = self._require_pending(action_id)
         if self._executor is None:
             raise RuntimeError("no executor configured")
@@ -106,7 +114,7 @@ class ApprovalGate:
         )
         self._actions[action_id] = executed
         self._record(executed)
-        return executed
+        return _copy_action(executed)
 
     def reject(self, action_id: str, reason: str = "") -> PendingAction:
         """Mark a pending action rejected. Does not call the executor."""
@@ -117,9 +125,14 @@ class ApprovalGate:
         return self._close(action_id, "cancelled", reason)
 
     def get(self, action_id: str) -> PendingAction:
+        """Return one recorded action. Does not call the executor.
+
+        The returned action is a copy, so an audit cannot mutate the stored
+        payload.
+        """
         if action_id not in self._actions:
             raise KeyError(f"unknown action: {action_id}")
-        return self._actions[action_id]
+        return _copy_action(self._actions[action_id])
 
     def actions(self, status: str | None = None) -> tuple[PendingAction, ...]:
         """Return recorded actions in insertion order. Does not call the executor.
@@ -154,7 +167,7 @@ class ApprovalGate:
         )
         self._actions[action_id] = closed
         self._record(closed)
-        return closed
+        return _copy_action(closed)
 
     def _record(self, action: PendingAction) -> None:
         self._decisions.append(
