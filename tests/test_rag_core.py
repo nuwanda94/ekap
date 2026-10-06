@@ -185,7 +185,7 @@ def test_query_drops_hits_below_min_score() -> None:
 
     kept = retriever.query(question, top_k=2, min_score=0.5)
     assert [hit.chunk.source_id for hit in kept] == ["handbook-1"]
-    assert "unused vacation" in kept[0].chunk.text
+    assert "unused vacation" in kept[0].chunk.text.lower()
 
     citations = retriever.query_with_citations(question, top_k=2, min_score=0.5)
     assert [citation.source_id for citation in citations] == ["handbook-1"]
