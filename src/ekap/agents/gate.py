@@ -33,6 +33,20 @@ class DecisionRecord:
     reason: str = ""
 
 
+@dataclass(frozen=True, slots=True)
+class GateSummary:
+    """Counts of recorded actions. Does not include payloads or executor results."""
+
+    pending: int = 0
+    executed: int = 0
+    rejected: int = 0
+    cancelled: int = 0
+
+    @property
+    def total(self) -> int:
+        return self.pending + self.executed + self.rejected + self.cancelled
+
+
 class ApprovalGate:
     """draft → approve → execute, or reject/cancel without touching external state."""
 
@@ -148,6 +162,18 @@ class ApprovalGate:
                 continue
             listed.append(_copy_action(action))
         return tuple(listed)
+
+    def summary(self) -> GateSummary:
+        """Count recorded actions by status. Does not call the executor."""
+        counts = {status: 0 for status in _STATUSES}
+        for action in self._actions.values():
+            counts[action.status] += 1
+        return GateSummary(
+            pending=counts["pending"],
+            executed=counts["executed"],
+            rejected=counts["rejected"],
+            cancelled=counts["cancelled"],
+        )
 
     def decisions(self) -> tuple[DecisionRecord, ...]:
         """Return gate transitions in the order they were recorded."""

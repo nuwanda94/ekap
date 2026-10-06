@@ -2,7 +2,7 @@
 
 import pytest
 
-from ekap.agents import ApprovalGate, DecisionRecord, PendingAction
+from ekap.agents import ApprovalGate, DecisionRecord, GateSummary, PendingAction
 from ekap.mcp_server import MCPServer
 
 
@@ -249,3 +249,27 @@ def test_returned_actions_are_copies() -> None:
     assert gate.get(kept.action_id).payload == {"keep": True}
     assert gate.executed[0]["payload"] == {"keep": True}
     assert ledger == ["initial", "policy-1"]
+
+
+def test_summary_counts_statuses_without_executing() -> None:
+    ledger: list[str] = ["initial"]
+    gate = ApprovalGate(executor=lambda body: ledger.append(body["target"]))
+    empty = gate.summary()
+    assert isinstance(empty, GateSummary)
+    assert empty == GateSummary()
+    assert empty.total == 0
+
+    filed = gate.draft("file_expense", "travel-report")
+    kept = gate.draft("delete_record", "policy-1")
+    booked = gate.draft("book_travel", "SFO")
+    extra = gate.draft("notify", "ops")
+    gate.approve(filed.action_id)
+    gate.reject(kept.action_id, reason="no")
+    gate.cancel(booked.action_id, reason="withdrawn")
+
+    counted = gate.summary()
+    assert counted == GateSummary(pending=1, executed=1, rejected=1, cancelled=1)
+    assert counted.total == 4
+    assert gate.get(extra.action_id).status == "pending"
+    assert gate.executed == [gate.executed[0]]
+    assert ledger == ["initial", "travel-report"]

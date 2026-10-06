@@ -1,6 +1,6 @@
 """Orchestrator and approval-gate agents."""
 
-from ekap.agents.gate import ApprovalGate, DecisionRecord, PendingAction
+from ekap.agents.gate import ApprovalGate, DecisionRecord, GateSummary, PendingAction
 from ekap.agents.orchestrator import (
     DraftAnswer,
     Orchestrator,
@@ -16,6 +16,7 @@ __all__ = [
     "ApprovalGate",
     "DecisionRecord",
     "DraftAnswer",
+    "GateSummary",
     "Orchestrator",
     "PendingAction",
     "Plan",
