@@ -7,6 +7,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 Executor = Callable[[dict[str, Any]], Any]
+_STATUSES = frozenset({"pending", "executed", "rejected", "cancelled"})
 
 
 @dataclass(frozen=True, slots=True)
@@ -120,6 +121,21 @@ class ApprovalGate:
             raise KeyError(f"unknown action: {action_id}")
         return self._actions[action_id]
 
+    def actions(self, status: str | None = None) -> tuple[PendingAction, ...]:
+        """Return recorded actions in insertion order. Does not call the executor.
+
+        An optional status keeps only matching actions. A blank or unknown
+        status fails closed. Payloads are copies, so an audit cannot mutate
+        the stored action.
+        """
+        cleaned = _clean_status(status)
+        listed: list[PendingAction] = []
+        for action in self._actions.values():
+            if cleaned is not None and action.status != cleaned:
+                continue
+            listed.append(_copy_action(action))
+        return tuple(listed)
+
     def decisions(self) -> tuple[DecisionRecord, ...]:
         """Return gate transitions in the order they were recorded."""
         return tuple(self._decisions)
@@ -156,6 +172,28 @@ class ApprovalGate:
         if current.status != "pending":
             raise ValueError(f"action {action_id} is {current.status}, not pending")
         return current
+
+
+def _copy_action(action: PendingAction) -> PendingAction:
+    return PendingAction(
+        action_id=action.action_id,
+        action=action.action,
+        target=action.target,
+        payload=dict(action.payload),
+        status=action.status,
+        reason=action.reason,
+    )
+
+
+def _clean_status(status: str | None) -> str | None:
+    if status is None:
+        return None
+    if not isinstance(status, str):
+        raise TypeError("status must be a string")
+    cleaned = status.strip()
+    if cleaned not in _STATUSES:
+        raise ValueError("status must be pending, executed, rejected, or cancelled")
+    return cleaned
 
 
 def _require_text(value: str, name: str) -> str:

@@ -182,3 +182,41 @@ def test_cancel_leaves_external_state_unchanged() -> None:
         ("action-2", "pending", ""),
         ("action-1", "cancelled", "requester withdrew"),
     ]
+
+
+def test_actions_lists_copies_without_executing() -> None:
+    ledger: list[str] = ["initial"]
+    gate = ApprovalGate(executor=lambda body: ledger.append(body["target"]))
+    assert gate.actions() == ()
+
+    filed = gate.draft("file_expense", "travel-report", {"amount": 640})
+    kept = gate.draft("delete_record", "policy-1")
+    gate.cancel(filed.action_id, reason="withdrawn")
+
+    listed = gate.actions()
+    assert [item.action_id for item in listed] == ["action-1", "action-2"]
+    assert [(item.status, item.reason) for item in listed] == [
+        ("cancelled", "withdrawn"),
+        ("pending", ""),
+    ]
+    assert listed[0].payload == {"amount": 640}
+    listed[0].payload["amount"] = 0
+    assert gate.get(filed.action_id).payload == {"amount": 640}
+    assert gate.get(kept.action_id).status == "pending"
+
+    pending_only = gate.actions("  pending  ")
+    assert [item.action_id for item in pending_only] == ["action-2"]
+    assert gate.actions("cancelled")[0].action_id == filed.action_id
+    assert gate.actions("executed") == ()
+    assert gate.actions("rejected") == ()
+
+    with pytest.raises(ValueError, match="status must be"):
+        gate.actions("  ")
+    with pytest.raises(ValueError, match="status must be"):
+        gate.actions("done")
+    with pytest.raises(TypeError, match="status must be a string"):
+        gate.actions(1)  # type: ignore[arg-type]
+
+    assert [item.action_id for item in gate.actions()] == ["action-1", "action-2"]
+    assert gate.executed == []
+    assert ledger == ["initial"]
