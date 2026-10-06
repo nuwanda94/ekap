@@ -46,6 +46,7 @@ def test_health_is_callable() -> None:
     assert "get_chunk" in result.data["tools"]
     assert "get_chunk_context" in result.data["tools"]
     assert "find_chunks" in result.data["tools"]
+    assert "count_phrase" in result.data["tools"]
     assert "list_drafts" in result.data["tools"]
     assert "get_draft" in result.data["tools"]
     assert "cancel_draft" in result.data["tools"]
@@ -508,3 +509,114 @@ def test_find_chunks_matches_a_phrase_without_changing_the_corpus() -> None:
     assert [document.source_id for document in ingester.documents] == before
     assert list(ingester.chunks) == stored
 
+
+
+def test_count_phrase_groups_hits_without_returning_text() -> None:
+    ingester = Ingester(chunk_size=40, chunk_overlap=0)
+    executed: list[dict[str, str]] = []
+    server = MCPServer(
+        retriever=Retriever(ingester),
+        executor=executed.append,
+        ingester=ingester,
+    )
+
+    empty = server.call("count_phrase", {"phrase": "vacation"})
+    assert empty.ok is True
+    assert empty.draft is False
+    assert empty.data["sources"] == []
+    assert empty.data["total"] == 0
+    assert empty.data["executed"] is False
+
+    ingester.add("policy-a", POLICY, metadata={"tenant": "acme", "kind": "policy"})
+    ingester.add("policy-b", BETA_POLICY, metadata={"tenant": "beta", "kind": "policy"})
+    ingester.add("handbook-1", HANDBOOK, metadata={"tenant": "acme", "kind": "handbook"})
+    before = [document.source_id for document in ingester.documents]
+    stored = list(ingester.chunks)
+
+    result = server.call("count_phrase", {"phrase": " Unused Vacation "})
+    assert result.ok is True
+    assert result.draft is False
+    assert result.data["phrase"] == "Unused Vacation"
+    assert result.data["executed"] is False
+    assert result.data["sources"] == [
+        {
+            "source_id": "handbook-1",
+            "matches": sum(
+                "unused vacation" in chunk.text.lower() and chunk.source_id == "handbook-1"
+                for chunk in stored
+            ),
+        }
+    ]
+    assert result.data["total"] == result.data["sources"][0]["matches"]
+    assert "text" not in result.data
+    assert "snippet" not in result.data["sources"][0]
+
+    scoped = server.call("count_phrase", {"phrase": "approval", "source_id": " policy-a "})
+    assert scoped.ok is True
+    assert scoped.data["sources"] == [
+        {
+            "source_id": "policy-a",
+            "matches": sum(
+                "approval" in chunk.text.lower() and chunk.source_id == "policy-a"
+                for chunk in stored
+            ),
+        }
+    ]
+    assert scoped.data["total"] == scoped.data["sources"][0]["matches"]
+
+    filtered = server.call("count_phrase", {"phrase": "approval", "metadata": {"tenant": "beta"}})
+    assert filtered.ok is True
+    assert filtered.data["sources"] == [
+        {
+            "source_id": "policy-b",
+            "matches": sum(
+                "approval" in chunk.text.lower() and chunk.source_id == "policy-b"
+                for chunk in stored
+            ),
+        }
+    ]
+    missed = server.call(
+        "count_phrase",
+        {"phrase": "vacation", "source_id": "policy-a", "metadata": {"tenant": "acme"}},
+    )
+    assert missed.ok is True
+    assert missed.data["sources"] == []
+    assert missed.data["total"] == 0
+
+    no_ingester = MCPServer(retriever=Retriever(ingester)).call("count_phrase", {"phrase": "vacation"})
+    assert no_ingester.ok is False
+    assert no_ingester.draft is False
+    assert "ingester" in no_ingester.data["error"]
+
+    blank = server.call("count_phrase", {"phrase": "  "})
+    assert blank.ok is False
+    assert blank.draft is False
+    assert "phrase" in blank.data["error"]
+
+    bad_source = server.call("count_phrase", {"phrase": "vacation", "source_id": "  "})
+    assert bad_source.ok is False
+    assert "source_id" in bad_source.data["error"]
+
+    unknown = server.call("count_phrase", {"phrase": "vacation", "source_id": "missing"})
+    assert unknown.ok is False
+    assert "unknown source" in unknown.data["error"]
+
+    bad_meta = server.call("count_phrase", {"phrase": "vacation", "metadata": {"tenant": 1}})
+    assert bad_meta.ok is False
+    assert "metadata" in bad_meta.data["error"]
+
+    extra = server.call("count_phrase", {"phrase": "vacation", "execute": True})
+    assert extra.ok is False
+    assert extra.draft is False
+    assert "phrase" in extra.data["error"]
+
+    advertised = server.call("describe_tool", {"name": "count_phrase"})
+    assert advertised.ok is True
+    assert advertised.data["mutates"] is False
+    assert advertised.data["executed"] is False
+
+    assert executed == []
+    assert server.executed == []
+    assert server.drafts() == ()
+    assert [document.source_id for document in ingester.documents] == before
+    assert list(ingester.chunks) == stored
