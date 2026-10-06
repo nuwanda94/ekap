@@ -46,6 +46,7 @@ def test_health_is_callable() -> None:
     assert "list_drafts" in result.data["tools"]
     assert "get_draft" in result.data["tools"]
     assert "cancel_draft" in result.data["tools"]
+    assert "summarize_drafts" in result.data["tools"]
     assert "draft_remove_source" in result.data["tools"]
     assert executed == []
 
@@ -421,6 +422,45 @@ def test_cancel_draft_withdraws_pending_draft_without_executing() -> None:
     assert server.executed == []
     assert [document.source_id for document in ingester.documents] == ["policy-a"]
     assert len(server.drafts()) == 2
+
+
+def test_summarize_drafts_counts_statuses_without_executing() -> None:
+    ingester = Ingester()
+    ingester.add("policy-a", POLICY, metadata={"tenant": "acme"})
+    executed: list[dict[str, str]] = []
+    server = MCPServer(
+        retriever=Retriever(ingester),
+        executor=executed.append,
+        ingester=ingester,
+    )
+
+    empty = server.call("summarize_drafts")
+    assert empty.ok is True
+    assert empty.draft is False
+    assert empty.data == {"pending": 0, "cancelled": 0, "total": 0}
+
+    filed = server.call("draft_action", {"action": "file_expense", "target": "report-42"})
+    removed = server.call("draft_remove_source", {"source_id": "policy-a"})
+    assert filed.ok and removed.ok
+    cancelled = server.call("cancel_draft", {"draft_id": "draft-2"})
+    assert cancelled.ok
+
+    counted = server.call("summarize_drafts")
+    assert counted.ok is True
+    assert counted.draft is False
+    assert counted.data == {"pending": 1, "cancelled": 1, "total": 2}
+    counted.data["pending"] = 0
+    again = server.call("summarize_drafts")
+    assert again.data == {"pending": 1, "cancelled": 1, "total": 2}
+
+    bad = server.call("summarize_drafts", {"status": "pending"})
+    assert bad.ok is False
+    assert bad.draft is False
+    assert "no arguments" in bad.data["error"]
+    assert executed == []
+    assert server.executed == []
+    assert [document.source_id for document in ingester.documents] == ["policy-a"]
+    assert [item["status"] for item in server.drafts()] == ["pending", "cancelled"]
 
 
 def test_unknown_tool_and_missing_args_fail_closed() -> None:
