@@ -48,6 +48,7 @@ def test_health_is_callable() -> None:
     assert "cancel_draft" in result.data["tools"]
     assert "summarize_drafts" in result.data["tools"]
     assert "describe_tool" in result.data["tools"]
+    assert "list_tools" in result.data["tools"]
     assert "draft_remove_source" in result.data["tools"]
     assert executed == []
 
@@ -576,6 +577,75 @@ def test_describe_tool_returns_spec_without_executing() -> None:
     assert extra.ok is False
     assert extra.draft is False
     assert "name" in extra.data["error"]
+
+    assert executed == []
+    assert server.executed == []
+    assert [document.source_id for document in ingester.documents] == ["policy-a"]
+    assert len(server.drafts()) == 1
+    assert server.drafts()[0]["status"] == "pending"
+
+
+def test_list_tools_catalogs_specs_without_calling_them() -> None:
+    ingester = Ingester()
+    ingester.add("policy-a", POLICY, metadata={"tenant": "acme"})
+    executed: list[dict[str, str]] = []
+    server = MCPServer(
+        retriever=Retriever(ingester),
+        executor=executed.append,
+        ingester=ingester,
+    )
+    filed = server.call("draft_action", {"action": "file_expense", "target": "report-42"})
+    assert filed.ok
+
+    catalog = server.call("list_tools")
+    assert catalog.ok is True
+    assert catalog.draft is False
+    names = [item["name"] for item in catalog.data["tools"]]
+    assert names[0] == "health"
+    assert "search_docs" in names
+    assert "list_tools" in names
+    assert "draft_action" in names
+    assert "draft_remove_source" in names
+    assert catalog.data["total"] == len(names)
+    health = next(item for item in catalog.data["tools"] if item["name"] == "health")
+    assert health == {
+        "name": "health",
+        "description": "Liveness check for the tool server.",
+        "mutates": False,
+        "executed": False,
+    }
+    health["description"] = "mutated"
+    again = server.call("list_tools")
+    restored = next(item for item in again.data["tools"] if item["name"] == "health")
+    assert restored["description"] == "Liveness check for the tool server."
+
+    mutating = server.call("list_tools", {"mutates": True})
+    assert mutating.ok is True
+    assert mutating.draft is False
+    assert [item["name"] for item in mutating.data["tools"]] == [
+        "draft_action",
+        "draft_remove_source",
+    ]
+    assert all(item["mutates"] is True and item["executed"] is False for item in mutating.data["tools"])
+    assert mutating.data["total"] == 2
+
+    reading = server.call("list_tools", {"mutates": False})
+    assert reading.ok is True
+    assert reading.data["total"] == catalog.data["total"] - 2
+    assert all(item["mutates"] is False and item["executed"] is False for item in reading.data["tools"])
+    assert "draft_action" not in [item["name"] for item in reading.data["tools"]]
+
+    typed = server.call("list_tools", {"mutates": "true"})
+    assert typed.ok is False
+    assert typed.draft is False
+    assert "mutates" in typed.data["error"]
+    numbered = server.call("list_tools", {"mutates": 1})
+    assert numbered.ok is False
+    assert "mutates" in numbered.data["error"]
+    extra = server.call("list_tools", {"mutates": False, "execute": True})
+    assert extra.ok is False
+    assert extra.draft is False
+    assert "mutates" in extra.data["error"]
 
     assert executed == []
     assert server.executed == []

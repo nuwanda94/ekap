@@ -102,6 +102,11 @@ class MCPServer:
                 mutates=False,
             ),
             ToolSpec(
+                "list_tools",
+                "List advertised tools, optionally by mutates. Does not call them.",
+                mutates=False,
+            ),
+            ToolSpec(
                 "draft_action",
                 "Draft a mutating action. Does not execute it.",
                 mutates=True,
@@ -134,6 +139,8 @@ class MCPServer:
             return self._summarize_drafts(args)
         if name == "describe_tool":
             return self._describe_tool(args)
+        if name == "list_tools":
+            return self._list_tools_catalog(args)
         if name == "draft_action":
             return self._draft_action(args)
         if name == "draft_remove_source":
@@ -400,6 +407,37 @@ class MCPServer:
             name="describe_tool",
             ok=False,
             data={"error": f"unknown tool: {cleaned}"},
+        )
+
+    def _list_tools_catalog(self, args: dict[str, Any]) -> ToolResult:
+        extra = set(args) - {"mutates"}
+        if extra:
+            return ToolResult(
+                name="list_tools",
+                ok=False,
+                data={"error": "list_tools only accepts mutates"},
+            )
+        mutates = args.get("mutates")
+        if mutates is not None and not isinstance(mutates, bool):
+            return ToolResult(
+                name="list_tools",
+                ok=False,
+                data={"error": "mutates must be a boolean"},
+            )
+        tools = [
+            {
+                "name": spec.name,
+                "description": spec.description,
+                "mutates": spec.mutates,
+                "executed": False,
+            }
+            for spec in self.list_tools()
+            if mutates is None or spec.mutates is mutates
+        ]
+        return ToolResult(
+            name="list_tools",
+            ok=True,
+            data={"tools": tools, "total": len(tools)},
         )
 
     def _draft_action(self, args: dict[str, Any]) -> ToolResult:
