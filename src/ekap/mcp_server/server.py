@@ -87,6 +87,11 @@ class MCPServer:
                 mutates=False,
             ),
             ToolSpec(
+                "get_chunk",
+                "Fetch one ingested chunk by id, including text. Does not change it.",
+                mutates=False,
+            ),
+            ToolSpec(
                 "list_drafts",
                 "List recorded action drafts, optionally by status. Does not execute them.",
                 mutates=False,
@@ -143,6 +148,8 @@ class MCPServer:
             return self._summarize_sources(args)
         if name == "list_chunks":
             return self._list_chunks(args)
+        if name == "get_chunk":
+            return self._get_chunk(args)
         if name == "list_drafts":
             return self._list_drafts(args)
         if name == "get_draft":
@@ -373,6 +380,49 @@ class MCPServer:
             name="list_chunks",
             ok=True,
             data={"chunks": chunks, "total": len(chunks), "executed": False},
+        )
+
+
+    def _get_chunk(self, args: dict[str, Any]) -> ToolResult:
+        extra = set(args) - {"chunk_id"}
+        if extra:
+            return ToolResult(
+                name="get_chunk",
+                ok=False,
+                data={"error": "get_chunk only accepts chunk_id"},
+            )
+        chunk_id = args.get("chunk_id", "")
+        if not isinstance(chunk_id, str) or not chunk_id.strip():
+            return ToolResult(name="get_chunk", ok=False, data={"error": "chunk_id is required"})
+        cleaned_id = chunk_id.strip()
+        if self._ingester is None:
+            return ToolResult(
+                name="get_chunk",
+                ok=False,
+                data={"error": "no ingester configured"},
+            )
+        for chunk in self._ingester.chunks:
+            if chunk.chunk_id != cleaned_id:
+                continue
+            document = _find_source(self._ingester, chunk.source_id)
+            metadata = dict(document.metadata) if document is not None else {}
+            return ToolResult(
+                name="get_chunk",
+                ok=True,
+                data={
+                    "chunk_id": chunk.chunk_id,
+                    "source_id": chunk.source_id,
+                    "index": chunk.index,
+                    "text": chunk.text,
+                    "chars": len(chunk.text),
+                    "metadata": metadata,
+                    "executed": False,
+                },
+            )
+        return ToolResult(
+            name="get_chunk",
+            ok=False,
+            data={"error": f"unknown chunk: {cleaned_id}"},
         )
 
     def _list_drafts(self, args: dict[str, Any]) -> ToolResult:

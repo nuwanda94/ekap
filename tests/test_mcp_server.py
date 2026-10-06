@@ -43,6 +43,7 @@ def test_health_is_callable() -> None:
     assert "get_source" in result.data["tools"]
     assert "summarize_sources" in result.data["tools"]
     assert "list_chunks" in result.data["tools"]
+    assert "get_chunk" in result.data["tools"]
     assert "list_drafts" in result.data["tools"]
     assert "get_draft" in result.data["tools"]
     assert "cancel_draft" in result.data["tools"]
@@ -243,6 +244,75 @@ def test_list_chunks_lists_slices_without_changing_the_corpus() -> None:
     assert "source_id" in extra.data["error"]
 
     advertised = server.call("describe_tool", {"name": "list_chunks"})
+    assert advertised.ok is True
+    assert advertised.data["mutates"] is False
+    assert advertised.data["executed"] is False
+
+    assert executed == []
+    assert server.executed == []
+    assert server.drafts() == ()
+    assert [document.source_id for document in ingester.documents] == before
+    assert list(ingester.chunks) == stored
+
+
+def test_get_chunk_returns_text_without_changing_the_corpus() -> None:
+    ingester = Ingester(chunk_size=40, chunk_overlap=0)
+    executed: list[dict[str, str]] = []
+    server = MCPServer(
+        retriever=Retriever(ingester),
+        executor=executed.append,
+        ingester=ingester,
+    )
+
+    missing = server.call("get_chunk", {"chunk_id": "policy-a:0"})
+    assert missing.ok is False
+    assert missing.draft is False
+    assert "unknown chunk" in missing.data["error"]
+
+    ingester.add("policy-a", POLICY, metadata={"tenant": "acme", "kind": "policy"})
+    ingester.add("handbook-1", HANDBOOK, metadata={"tenant": "acme", "kind": "handbook"})
+    before = [document.source_id for document in ingester.documents]
+    stored = list(ingester.chunks)
+    target = next(chunk for chunk in stored if chunk.source_id == "handbook-1")
+
+    result = server.call("get_chunk", {"chunk_id": f" {target.chunk_id} "})
+    assert result.ok is True
+    assert result.draft is False
+    assert result.data["chunk_id"] == target.chunk_id
+    assert result.data["source_id"] == "handbook-1"
+    assert result.data["index"] == target.index
+    assert result.data["text"] == target.text
+    assert result.data["chars"] == len(target.text)
+    assert result.data["metadata"] == {"tenant": "acme", "kind": "handbook"}
+    assert result.data["executed"] is False
+    result.data["metadata"]["tenant"] = "mutated"
+    again = server.call("get_chunk", {"chunk_id": target.chunk_id})
+    assert again.data["metadata"]["tenant"] == "acme"
+
+    no_ingester = MCPServer(retriever=Retriever(ingester)).call(
+        "get_chunk",
+        {"chunk_id": target.chunk_id},
+    )
+    assert no_ingester.ok is False
+    assert no_ingester.draft is False
+    assert "ingester" in no_ingester.data["error"]
+
+    blank = server.call("get_chunk", {"chunk_id": "  "})
+    assert blank.ok is False
+    assert blank.draft is False
+    assert "chunk_id" in blank.data["error"]
+
+    unknown = server.call("get_chunk", {"chunk_id": "missing:0"})
+    assert unknown.ok is False
+    assert unknown.draft is False
+    assert "unknown chunk" in unknown.data["error"]
+
+    extra = server.call("get_chunk", {"chunk_id": target.chunk_id, "execute": True})
+    assert extra.ok is False
+    assert extra.draft is False
+    assert "chunk_id" in extra.data["error"]
+
+    advertised = server.call("describe_tool", {"name": "get_chunk"})
     assert advertised.ok is True
     assert advertised.data["mutates"] is False
     assert advertised.data["executed"] is False
