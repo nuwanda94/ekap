@@ -141,6 +141,7 @@ RAG core, an in-process MCP server (`health`, `search_docs`, `list_sources`, `ge
 `count_phrase` returns source-level match counts for a literal phrase, optionally limited to a source or metadata map, and does not return chunk text; a missing ingester, blank phrase, unknown source, invalid metadata map, or extra argument fails closed, and the tool never changes the corpus or calls the executor.
 `overlap_sources` returns shared and unique alphanumeric token counts for two known sources, plus the shared token list, and does not return source text; a missing ingester, blank id, identical ids, unknown source, or extra argument fails closed, and the tool never changes the corpus or calls the executor.
 `token_stats` returns occurrence and unique alphanumeric token counts for one known source, plus the most frequent tokens, and does not return source text; a missing ingester, blank id, unknown source, invalid limit, or extra argument fails closed, and the tool never changes the corpus or calls the executor.
+`query_coverage` returns source ids for each alphanumeric query token, plus sources that contain every token, optionally limited by metadata, and does not return source text; a missing ingester, blank query, query with no token, invalid metadata map, or extra argument fails closed, and the tool never changes the corpus or calls the executor.
 
 ---
 

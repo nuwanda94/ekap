@@ -49,6 +49,7 @@ def test_health_is_callable() -> None:
     assert "count_phrase" in result.data["tools"]
     assert "overlap_sources" in result.data["tools"]
     assert "token_stats" in result.data["tools"]
+    assert "query_coverage" in result.data["tools"]
     assert "list_drafts" in result.data["tools"]
     assert "get_draft" in result.data["tools"]
     assert "cancel_draft" in result.data["tools"]
@@ -787,3 +788,89 @@ def test_token_stats_counts_tokens_without_returning_text() -> None:
     assert [document.source_id for document in ingester.documents] == before
     assert list(ingester.chunks) == stored
 
+
+
+def test_query_coverage_lists_sources_per_token_without_returning_text() -> None:
+    ingester = Ingester()
+    executed: list[dict[str, str]] = []
+    server = MCPServer(
+        retriever=Retriever(ingester),
+        executor=executed.append,
+        ingester=ingester,
+    )
+    ingester.add("policy-a", POLICY, metadata={"tenant": "acme", "kind": "policy"})
+    ingester.add("policy-b", BETA_POLICY, metadata={"tenant": "beta", "kind": "policy"})
+    ingester.add("handbook-1", HANDBOOK, metadata={"tenant": "acme", "kind": "handbook"})
+    before = [document.source_id for document in ingester.documents]
+    stored = list(ingester.chunks)
+
+    result = server.call("query_coverage", {"query": " Vacation portal vacation "})
+    assert result.ok is True
+    assert result.draft is False
+    assert result.data["query"] == "Vacation portal vacation"
+    assert result.data["tokens"] == ["vacation", "portal"]
+    assert result.data["executed"] is False
+    assert "text" not in result.data
+    assert result.data["coverage"] == [
+        {"token": "vacation", "source_ids": ["handbook-1"]},
+        {"token": "portal", "source_ids": ["policy-a", "policy-b"]},
+    ]
+    assert result.data["all"] == []
+
+    both = server.call("query_coverage", {"query": "expense travel"})
+    assert both.ok is True
+    assert both.draft is False
+    assert both.data["all"] == ["policy-a", "policy-b"]
+    assert both.data["coverage"][0]["source_ids"] == ["policy-a", "policy-b"]
+
+    filtered = server.call(
+        "query_coverage",
+        {"query": "expense travel", "metadata": {"tenant": "acme"}},
+    )
+    assert filtered.ok is True
+    assert filtered.draft is False
+    assert filtered.data["all"] == ["policy-a"]
+    assert filtered.data["coverage"] == [
+        {"token": "expense", "source_ids": ["policy-a"]},
+        {"token": "travel", "source_ids": ["policy-a"]},
+    ]
+    assert "text" not in filtered.data
+
+    no_ingester = MCPServer(retriever=Retriever(ingester)).call(
+        "query_coverage",
+        {"query": "vacation"},
+    )
+    assert no_ingester.ok is False
+    assert no_ingester.draft is False
+    assert "ingester" in no_ingester.data["error"]
+
+    blank = server.call("query_coverage", {"query": "  "})
+    assert blank.ok is False
+    assert blank.draft is False
+    assert "query" in blank.data["error"]
+
+    punctuation = server.call("query_coverage", {"query": "..."})
+    assert punctuation.ok is False
+    assert punctuation.draft is False
+    assert "token" in punctuation.data["error"]
+
+    bad = server.call("query_coverage", {"query": "vacation", "metadata": {"tenant": 1}})
+    assert bad.ok is False
+    assert bad.draft is False
+    assert "metadata" in bad.data["error"]
+
+    extra = server.call("query_coverage", {"query": "vacation", "execute": True})
+    assert extra.ok is False
+    assert extra.draft is False
+    assert "query" in extra.data["error"]
+
+    advertised = server.call("describe_tool", {"name": "query_coverage"})
+    assert advertised.ok is True
+    assert advertised.data["mutates"] is False
+    assert advertised.data["executed"] is False
+
+    assert executed == []
+    assert server.executed == []
+    assert server.drafts() == ()
+    assert [document.source_id for document in ingester.documents] == before
+    assert list(ingester.chunks) == stored
