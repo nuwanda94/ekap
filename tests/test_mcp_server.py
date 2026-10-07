@@ -1674,3 +1674,106 @@ def test_strip_sources_groups_padded_variants_without_returning_text() -> None:
     assert server.drafts() == ()
     assert [document.source_id for document in ingester.documents] == before
     assert list(ingester.chunks) == stored
+
+def test_collapse_sources_groups_whitespace_variants_without_returning_text() -> None:
+    ingester = Ingester()
+    executed: list[dict[str, str]] = []
+    server = MCPServer(
+        retriever=Retriever(ingester),
+        executor=executed.append,
+        ingester=ingester,
+    )
+
+    empty = server.call("collapse_sources")
+    assert empty.ok is True
+    assert empty.draft is False
+    assert empty.data == {"sources": 0, "groups": [], "executed": False}
+
+    interior = POLICY.replace(" ", "  ", 1)
+    ingester.add("policy-a", POLICY, metadata={"tenant": "acme", "kind": "policy"})
+    ingester.add("policy-pad", f"  {POLICY}  ", metadata={"tenant": "acme", "kind": "policy"})
+    ingester.add("policy-interior", interior, metadata={"tenant": "acme", "kind": "policy"})
+    ingester.add("policy-copy", POLICY, metadata={"tenant": "beta", "kind": "policy"})
+    ingester.add("handbook-1", HANDBOOK, metadata={"tenant": "acme", "kind": "handbook"})
+    ingester.add("policy-case", POLICY.upper(), metadata={"tenant": "acme", "kind": "policy"})
+    before = [document.source_id for document in ingester.documents]
+    stored = list(ingester.chunks)
+
+    result = server.call("collapse_sources")
+    assert result.ok is True
+    assert result.draft is False
+    assert result.data["sources"] == 6
+    assert result.data["executed"] is False
+    assert result.data["groups"] == [
+        {
+            "source_ids": ["policy-a", "policy-pad", "policy-interior", "policy-copy"],
+            "size": 4,
+            "chars": len(POLICY),
+            "identical": False,
+            "padded": True,
+            "collapsed": True,
+        }
+    ]
+    assert "text" not in result.data
+    assert all("text" not in item for item in result.data["groups"])
+
+    filtered = server.call("collapse_sources", {"metadata": {"tenant": "beta"}})
+    assert filtered.ok is True
+    assert filtered.draft is False
+    assert filtered.data["sources"] == 1
+    assert filtered.data["groups"] == []
+
+    acme = server.call("collapse_sources", {"metadata": {"tenant": "acme", "kind": "policy"}})
+    assert acme.ok is True
+    assert acme.data["groups"] == [
+        {
+            "source_ids": ["policy-a", "policy-pad", "policy-interior"],
+            "size": 3,
+            "chars": len(POLICY),
+            "identical": False,
+            "padded": True,
+            "collapsed": True,
+        }
+    ]
+
+    copies = Ingester()
+    copies.add("one", POLICY, metadata={"tenant": "acme"})
+    copies.add("two", POLICY, metadata={"tenant": "acme"})
+    exact = MCPServer(ingester=copies).call("collapse_sources")
+    assert exact.ok is True
+    assert exact.data["groups"] == [
+        {
+            "source_ids": ["one", "two"],
+            "size": 2,
+            "chars": len(POLICY),
+            "identical": True,
+            "padded": False,
+            "collapsed": False,
+        }
+    ]
+
+    no_ingester = MCPServer(retriever=Retriever(ingester)).call("collapse_sources")
+    assert no_ingester.ok is False
+    assert no_ingester.data["error"] == "no ingester configured"
+    assert executed == []
+
+    bad = server.call("collapse_sources", {"metadata": {"tenant": 1}})
+    assert bad.ok is False
+    assert "metadata" in bad.data["error"]
+
+    extra = server.call("collapse_sources", {"metadata": {"tenant": "acme"}, "execute": True})
+    assert extra.ok is False
+    assert extra.draft is False
+    assert "only accepts metadata" in extra.data["error"]
+
+    advertised = server.call("describe_tool", {"name": "collapse_sources"})
+    assert advertised.ok is True
+    assert advertised.data["mutates"] is False
+    assert advertised.data["executed"] is False
+
+    assert executed == []
+    assert server.executed == []
+    assert server.drafts() == ()
+    assert [document.source_id for document in ingester.documents] == before
+    assert list(ingester.chunks) == stored
+
