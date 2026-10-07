@@ -50,6 +50,7 @@ def test_health_is_callable() -> None:
     assert "overlap_sources" in result.data["tools"]
     assert "token_stats" in result.data["tools"]
     assert "query_coverage" in result.data["tools"]
+    assert "query_gaps" in result.data["tools"]
     assert "list_drafts" in result.data["tools"]
     assert "get_draft" in result.data["tools"]
     assert "cancel_draft" in result.data["tools"]
@@ -865,6 +866,108 @@ def test_query_coverage_lists_sources_per_token_without_returning_text() -> None
     assert "query" in extra.data["error"]
 
     advertised = server.call("describe_tool", {"name": "query_coverage"})
+    assert advertised.ok is True
+    assert advertised.data["mutates"] is False
+    assert advertised.data["executed"] is False
+
+    assert executed == []
+    assert server.executed == []
+    assert server.drafts() == ()
+    assert [document.source_id for document in ingester.documents] == before
+    assert list(ingester.chunks) == stored
+
+
+def test_query_gaps_lists_uncovered_tokens_without_returning_text() -> None:
+    ingester = Ingester()
+    executed: list[dict[str, str]] = []
+    server = MCPServer(
+        retriever=Retriever(ingester),
+        executor=executed.append,
+        ingester=ingester,
+    )
+
+    empty = server.call("query_gaps", {"query": "vacation portal"})
+    assert empty.ok is True
+    assert empty.draft is False
+    assert empty.data["tokens"] == ["vacation", "portal"]
+    assert empty.data["missing"] == ["vacation", "portal"]
+    assert empty.data["partial"] == []
+    assert empty.data["executed"] is False
+    assert "text" not in empty.data
+
+    ingester.add("policy-a", POLICY, metadata={"tenant": "acme", "kind": "policy"})
+    ingester.add("policy-b", BETA_POLICY, metadata={"tenant": "beta", "kind": "policy"})
+    ingester.add("handbook-1", HANDBOOK, metadata={"tenant": "acme", "kind": "handbook"})
+    before = [document.source_id for document in ingester.documents]
+    stored = list(ingester.chunks)
+
+    result = server.call("query_gaps", {"query": "Vacation portal! unicorn"})
+    assert result.ok is True
+    assert result.draft is False
+    assert result.data["query"] == "Vacation portal! unicorn"
+    assert result.data["tokens"] == ["vacation", "portal", "unicorn"]
+    assert result.data["missing"] == ["unicorn"]
+    assert result.data["executed"] is False
+    assert result.data["partial"] == [
+        {"source_id": "policy-a", "missing": ["vacation", "unicorn"]},
+        {"source_id": "policy-b", "missing": ["vacation", "unicorn"]},
+        {"source_id": "handbook-1", "missing": ["portal", "unicorn"]},
+    ]
+    assert "text" not in result.data
+    assert all("text" not in item for item in result.data["partial"])
+
+    filtered = server.call(
+        "query_gaps",
+        {"query": "vacation portal", "metadata": {"tenant": "acme"}},
+    )
+    assert filtered.ok is True
+    assert filtered.draft is False
+    assert filtered.data["missing"] == []
+    assert [item["source_id"] for item in filtered.data["partial"]] == [
+        "policy-a",
+        "handbook-1",
+    ]
+    assert filtered.data["partial"][0]["missing"] == ["vacation"]
+    assert filtered.data["partial"][1]["missing"] == ["portal"]
+    assert "text" not in filtered.data
+
+    covered = server.call(
+        "query_gaps",
+        {"query": "portal", "metadata": {"tenant": "beta"}},
+    )
+    assert covered.ok is True
+    assert covered.data["missing"] == []
+    assert covered.data["partial"] == []
+
+    no_ingester = MCPServer(retriever=Retriever(ingester)).call(
+        "query_gaps",
+        {"query": "vacation"},
+    )
+    assert no_ingester.ok is False
+    assert no_ingester.draft is False
+    assert "ingester" in no_ingester.data["error"]
+
+    blank = server.call("query_gaps", {"query": "  "})
+    assert blank.ok is False
+    assert blank.draft is False
+    assert "query" in blank.data["error"]
+
+    punctuation = server.call("query_gaps", {"query": "..."})
+    assert punctuation.ok is False
+    assert punctuation.draft is False
+    assert "token" in punctuation.data["error"]
+
+    bad = server.call("query_gaps", {"query": "vacation", "metadata": {"tenant": 1}})
+    assert bad.ok is False
+    assert bad.draft is False
+    assert "metadata" in bad.data["error"]
+
+    extra = server.call("query_gaps", {"query": "vacation", "execute": True})
+    assert extra.ok is False
+    assert extra.draft is False
+    assert "query" in extra.data["error"]
+
+    advertised = server.call("describe_tool", {"name": "query_gaps"})
     assert advertised.ok is True
     assert advertised.data["mutates"] is False
     assert advertised.data["executed"] is False

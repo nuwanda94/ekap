@@ -124,6 +124,11 @@ class MCPServer:
                 mutates=False,
             ),
             ToolSpec(
+                "query_gaps",
+                "List query tokens no matching source covers. Does not return source text.",
+                mutates=False,
+            ),
+            ToolSpec(
                 "list_drafts",
                 "List recorded action drafts, optionally by status. Does not execute them.",
                 mutates=False,
@@ -194,6 +199,8 @@ class MCPServer:
             return self._token_stats(args)
         if name == "query_coverage":
             return self._query_coverage(args)
+        if name == "query_gaps":
+            return self._query_gaps(args)
         if name == "list_drafts":
             return self._list_drafts(args)
         if name == "get_draft":
@@ -1087,6 +1094,69 @@ class MCPServer:
                 "tokens": tokens,
                 "coverage": coverage,
                 "all": all_ids,
+                "executed": False,
+            },
+        )
+
+
+    def _query_gaps(self, args: dict[str, Any]) -> ToolResult:
+        extra = set(args) - {"query", "metadata"}
+        if extra:
+            return ToolResult(
+                name="query_gaps",
+                ok=False,
+                data={"error": "query_gaps only accepts query and metadata"},
+            )
+        query = args.get("query", "")
+        if not isinstance(query, str) or not query.strip():
+            return ToolResult(
+                name="query_gaps",
+                ok=False,
+                data={"error": "query is required"},
+            )
+        metadata = args.get("metadata")
+        metadata_error = _metadata_error(metadata)
+        if metadata_error is not None:
+            return ToolResult(name="query_gaps", ok=False, data={"error": metadata_error})
+        tokens = _query_tokens(query)
+        if not tokens:
+            return ToolResult(
+                name="query_gaps",
+                ok=False,
+                data={"error": "query must contain a token"},
+            )
+        if self._ingester is None:
+            return ToolResult(
+                name="query_gaps",
+                ok=False,
+                data={"error": "no ingester configured"},
+            )
+        try:
+            documents = self._ingester.find(metadata=metadata)
+        except (TypeError, ValueError) as exc:
+            return ToolResult(name="query_gaps", ok=False, data={"error": str(exc)})
+        token_sets = [(document.source_id, _alnum_tokens(document.text)) for document in documents]
+        missing = [
+            token
+            for token in tokens
+            if not any(token in source_tokens for _, source_tokens in token_sets)
+        ]
+        partial = [
+            {
+                "source_id": source_id,
+                "missing": [token for token in tokens if token not in source_tokens],
+            }
+            for source_id, source_tokens in token_sets
+            if any(token not in source_tokens for token in tokens)
+        ]
+        return ToolResult(
+            name="query_gaps",
+            ok=True,
+            data={
+                "query": query.strip(),
+                "tokens": tokens,
+                "missing": missing,
+                "partial": partial,
                 "executed": False,
             },
         )
