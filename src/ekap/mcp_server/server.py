@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from collections import Counter
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -179,6 +180,11 @@ class MCPServer:
                 mutates=False,
             ),
             ToolSpec(
+                "punctfold_sources",
+                "Group sources that match after dropping punctuation. Does not return text.",
+                mutates=False,
+            ),
+            ToolSpec(
                 "list_drafts",
                 "List recorded action drafts, optionally by status. Does not execute them.",
                 mutates=False,
@@ -271,6 +277,8 @@ class MCPServer:
             return self._collapse_sources(args)
         if name == "normalize_sources":
             return self._normalize_sources(args)
+        if name == "punctfold_sources":
+            return self._punctfold_sources(args)
         if name == "list_drafts":
             return self._list_drafts(args)
         if name == "get_draft":
@@ -1758,6 +1766,75 @@ class MCPServer:
             },
         )
 
+
+    def _punctfold_sources(self, args: dict[str, Any]) -> ToolResult:
+        extra = set(args) - {"metadata"}
+        if extra:
+            return ToolResult(
+                name="punctfold_sources",
+                ok=False,
+                data={"error": "punctfold_sources only accepts metadata"},
+            )
+        metadata = args.get("metadata")
+        metadata_error = _metadata_error(metadata)
+        if metadata_error is not None:
+            return ToolResult(name="punctfold_sources", ok=False, data={"error": metadata_error})
+        if self._ingester is None:
+            return ToolResult(
+                name="punctfold_sources",
+                ok=False,
+                data={"error": "no ingester configured"},
+            )
+        try:
+            documents = self._ingester.find(metadata=metadata)
+        except (TypeError, ValueError) as exc:
+            return ToolResult(name="punctfold_sources", ok=False, data={"error": str(exc)})
+        groups: dict[str, list[Document]] = {}
+        order: list[str] = []
+        for document in documents:
+            key = _punctfold_text(document.text)
+            if key not in groups:
+                groups[key] = []
+                order.append(key)
+            groups[key].append(document)
+        folded = []
+        for key in order:
+            members = groups[key]
+            if len(members) < 2:
+                continue
+            first = members[0].text
+            folded.append(
+                {
+                    "source_ids": [document.source_id for document in members],
+                    "size": len(members),
+                    "chars": len(key),
+                    "identical": all(document.text == first for document in members),
+                    "padded": any(document.text != document.text.strip() for document in members),
+                    "collapsed": any(
+                        _collapse_ws(document.text) != document.text for document in members
+                    ),
+                    "folded": any(
+                        _collapse_ws(document.text).casefold() == _collapse_ws(first).casefold()
+                        and _collapse_ws(document.text) != _collapse_ws(first)
+                        for document in members
+                    ),
+                    "punctuated": any(
+                        _normalize_text(document.text) != _normalize_text(first)
+                        and _punctfold_text(document.text) == key
+                        for document in members
+                    ),
+                }
+            )
+        return ToolResult(
+            name="punctfold_sources",
+            ok=True,
+            data={
+                "sources": len(documents),
+                "groups": folded,
+                "executed": False,
+            },
+        )
+
     def _record_draft(self, action: str, target: str) -> _ActionDraft:
         draft = _ActionDraft(
             draft_id=f"draft-{len(self._drafts) + 1}",
@@ -1783,6 +1860,15 @@ def _normalize_text(text: str) -> str:
 
 _ALNUM = re.compile(r"[A-Za-z0-9]+")
 
+
+
+
+def _punctfold_text(text: str) -> str:
+    """Normalize whitespace and case, then drop Unicode punctuation."""
+    kept = "".join(
+        ch for ch in _normalize_text(text) if not unicodedata.category(ch).startswith("P")
+    )
+    return _collapse_ws(kept)
 
 
 def _query_tokens(text: str) -> list[str]:

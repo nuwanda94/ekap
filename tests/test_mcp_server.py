@@ -1,6 +1,7 @@
 """Unit tests for the in-process MCP tool server."""
 
 from ekap.mcp_server import MCPServer, ToolResult
+from ekap.mcp_server.server import _punctfold_text
 from ekap.rag import Ingester, Retriever
 
 POLICY = (
@@ -56,6 +57,7 @@ def test_health_is_callable() -> None:
     assert "metadata_facets" in result.data["tools"]
     assert "duplicate_sources" in result.data["tools"]
     assert "normalize_sources" in result.data["tools"]
+    assert "punctfold_sources" in result.data["tools"]
     assert "list_drafts" in result.data["tools"]
     assert "get_draft" in result.data["tools"]
     assert "cancel_draft" in result.data["tools"]
@@ -1895,3 +1897,129 @@ def test_normalize_sources_groups_case_and_whitespace_variants_without_returning
     assert [document.source_id for document in ingester.documents] == before
     assert list(ingester.chunks) == stored
 
+
+
+def test_punctfold_sources_groups_punctuation_variants_without_returning_text() -> None:
+    ingester = Ingester()
+    executed: list[dict[str, str]] = []
+    server = MCPServer(
+        retriever=Retriever(ingester),
+        executor=executed.append,
+        ingester=ingester,
+    )
+
+    empty = server.call("punctfold_sources")
+    assert empty.ok is True
+    assert empty.draft is False
+    assert empty.data == {"sources": 0, "groups": [], "executed": False}
+
+    interior = POLICY.replace(" ", "  ", 1)
+    punctuated = POLICY.replace(".", "!", 1)
+    lettered = POLICY.replace("Expense", "Expenses", 1)
+    ingester.add("policy-a", POLICY, metadata={"tenant": "acme", "kind": "policy"})
+    ingester.add("policy-pad", f"  {POLICY}  ", metadata={"tenant": "acme", "kind": "policy"})
+    ingester.add("policy-interior", interior, metadata={"tenant": "acme", "kind": "policy"})
+    ingester.add("policy-copy", POLICY, metadata={"tenant": "beta", "kind": "policy"})
+    ingester.add("handbook-1", HANDBOOK, metadata={"tenant": "acme", "kind": "handbook"})
+    ingester.add("policy-case", POLICY.upper(), metadata={"tenant": "acme", "kind": "policy"})
+    ingester.add("policy-punct", punctuated, metadata={"tenant": "acme", "kind": "policy"})
+    ingester.add("policy-letter", lettered, metadata={"tenant": "acme", "kind": "policy"})
+    before = [document.source_id for document in ingester.documents]
+    stored = list(ingester.chunks)
+
+    result = server.call("punctfold_sources")
+    assert result.ok is True
+    assert result.draft is False
+    assert result.data["sources"] == 8
+    assert result.data["executed"] is False
+    assert result.data["groups"] == [
+        {
+            "source_ids": [
+                "policy-a",
+                "policy-pad",
+                "policy-interior",
+                "policy-copy",
+                "policy-case",
+                "policy-punct",
+            ],
+            "size": 6,
+            "chars": len(_punctfold_text(POLICY)),
+            "identical": False,
+            "padded": True,
+            "collapsed": True,
+            "folded": True,
+            "punctuated": True,
+        }
+    ]
+    assert "text" not in result.data
+    assert all("text" not in item for item in result.data["groups"])
+
+    filtered = server.call("punctfold_sources", {"metadata": {"tenant": "beta"}})
+    assert filtered.ok is True
+    assert filtered.draft is False
+    assert filtered.data["sources"] == 1
+    assert filtered.data["groups"] == []
+
+    acme = server.call("punctfold_sources", {"metadata": {"tenant": "acme", "kind": "policy"}})
+    assert acme.ok is True
+    assert acme.data["groups"] == [
+        {
+            "source_ids": [
+                "policy-a",
+                "policy-pad",
+                "policy-interior",
+                "policy-case",
+                "policy-punct",
+            ],
+            "size": 5,
+            "chars": len(_punctfold_text(POLICY)),
+            "identical": False,
+            "padded": True,
+            "collapsed": True,
+            "folded": True,
+            "punctuated": True,
+        }
+    ]
+
+    copies = Ingester()
+    copies.add("one", POLICY, metadata={"tenant": "acme"})
+    copies.add("two", POLICY, metadata={"tenant": "acme"})
+    exact = MCPServer(ingester=copies).call("punctfold_sources")
+    assert exact.ok is True
+    assert exact.data["groups"] == [
+        {
+            "source_ids": ["one", "two"],
+            "size": 2,
+            "chars": len(_punctfold_text(POLICY)),
+            "identical": True,
+            "padded": False,
+            "collapsed": False,
+            "folded": False,
+            "punctuated": False,
+        }
+    ]
+
+    no_ingester = MCPServer(retriever=Retriever(ingester)).call("punctfold_sources")
+    assert no_ingester.ok is False
+    assert no_ingester.data["error"] == "no ingester configured"
+    assert executed == []
+
+    bad = server.call("punctfold_sources", {"metadata": {"tenant": 1}})
+    assert bad.ok is False
+    assert "metadata" in bad.data["error"]
+
+    extra = server.call("punctfold_sources", {"metadata": {"tenant": "acme"}, "execute": True})
+    assert extra.ok is False
+    assert extra.draft is False
+    assert "only accepts metadata" in extra.data["error"]
+
+    advertised = server.call("describe_tool", {"name": "punctfold_sources"})
+    assert advertised.ok is True
+    assert advertised.data["mutates"] is False
+    assert advertised.data["executed"] is False
+
+    assert executed == []
+    assert server.executed == []
+    assert server.drafts() == ()
+    assert [document.source_id for document in ingester.documents] == before
+    assert list(ingester.chunks) == stored
