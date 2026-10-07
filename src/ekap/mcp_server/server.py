@@ -154,8 +154,8 @@ class MCPServer:
                 mutates=False,
             ),
             ToolSpec(
-                "blank_sources",
-                "List sources whose text is empty or whitespace. Does not return source text.",
+                "padded_sources",
+                "List sources with leading or trailing whitespace. Does not return source text.",
                 mutates=False,
             ),
             ToolSpec(
@@ -241,8 +241,8 @@ class MCPServer:
             return self._duplicate_sources(args)
         if name == "missing_metadata":
             return self._missing_metadata(args)
-        if name == "blank_sources":
-            return self._blank_sources(args)
+        if name == "padded_sources":
+            return self._padded_sources(args)
         if name == "list_drafts":
             return self._list_drafts(args)
         if name == "get_draft":
@@ -1458,43 +1458,45 @@ class MCPServer:
         )
 
 
-    def _blank_sources(self, args: dict[str, Any]) -> ToolResult:
+    def _padded_sources(self, args: dict[str, Any]) -> ToolResult:
         extra = set(args) - {"metadata"}
         if extra:
             return ToolResult(
-                name="blank_sources",
+                name="padded_sources",
                 ok=False,
-                data={"error": "blank_sources only accepts metadata"},
+                data={"error": "padded_sources only accepts metadata"},
             )
         metadata = args.get("metadata")
         metadata_error = _metadata_error(metadata)
         if metadata_error is not None:
-            return ToolResult(name="blank_sources", ok=False, data={"error": metadata_error})
+            return ToolResult(name="padded_sources", ok=False, data={"error": metadata_error})
         if self._ingester is None:
             return ToolResult(
-                name="blank_sources",
+                name="padded_sources",
                 ok=False,
                 data={"error": "no ingester configured"},
             )
         try:
             documents = self._ingester.find(metadata=metadata)
         except (TypeError, ValueError) as exc:
-            return ToolResult(name="blank_sources", ok=False, data={"error": str(exc)})
-        blank = [
+            return ToolResult(name="padded_sources", ok=False, data={"error": str(exc)})
+        padded = [
             {
                 "source_id": document.source_id,
                 "metadata": dict(document.metadata),
                 "chars": len(document.text),
+                "leading": len(document.text) - len(document.text.lstrip()),
+                "trailing": len(document.text) - len(document.text.rstrip()),
             }
             for document in documents
-            if not document.text.strip()
+            if document.text != document.text.strip()
         ]
         return ToolResult(
-            name="blank_sources",
+            name="padded_sources",
             ok=True,
             data={
                 "sources": len(documents),
-                "blank": blank,
+                "padded": padded,
                 "executed": False,
             },
         )

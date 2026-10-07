@@ -1399,7 +1399,8 @@ def test_missing_metadata_lists_sources_without_key_and_does_not_return_text() -
     assert list(ingester.chunks) == stored
 
 
-def test_blank_sources_lists_empty_or_whitespace_text_without_returning_it() -> None:
+
+def test_padded_sources_lists_leading_or_trailing_whitespace_without_returning_text() -> None:
     ingester = Ingester()
     executed: list[dict[str, str]] = []
     server = MCPServer(
@@ -1408,63 +1409,67 @@ def test_blank_sources_lists_empty_or_whitespace_text_without_returning_it() -> 
         ingester=ingester,
     )
 
-    empty = server.call("blank_sources")
+    empty = server.call("padded_sources")
     assert empty.ok is True
     assert empty.draft is False
-    assert empty.data == {"sources": 0, "blank": [], "executed": False}
+    assert empty.data == {"sources": 0, "padded": [], "executed": False}
 
     ingester.add("policy-a", POLICY, metadata={"tenant": "acme", "kind": "policy"})
-    ingester.add("empty-acme", "", metadata={"tenant": "acme", "kind": "stub"})
-    ingester.add("spaces-beta", "   \\n\\t", metadata={"tenant": "beta", "kind": "stub"})
-    ingester.add("handbook-1", HANDBOOK, metadata={"tenant": "acme", "kind": "handbook"})
+    ingester.add("policy-pad", "  " + POLICY + "\n", metadata={"tenant": "acme", "kind": "policy"})
+    ingester.add("handbook-pad", "\t" + HANDBOOK, metadata={"tenant": "beta", "kind": "handbook"})
+    ingester.add("interior", "unused  vacation", metadata={"tenant": "acme", "kind": "note"})
     before = [document.source_id for document in ingester.documents]
     stored = list(ingester.chunks)
 
-    result = server.call("blank_sources")
+    result = server.call("padded_sources")
     assert result.ok is True
     assert result.draft is False
     assert result.data["sources"] == 4
     assert result.data["executed"] is False
-    assert result.data["blank"] == [
+    assert result.data["padded"] == [
         {
-            "source_id": "empty-acme",
-            "metadata": {"tenant": "acme", "kind": "stub"},
-            "chars": 0,
+            "source_id": "policy-pad",
+            "metadata": {"tenant": "acme", "kind": "policy"},
+            "chars": len("  " + POLICY + "\n"),
+            "leading": 2,
+            "trailing": 1,
         },
         {
-            "source_id": "spaces-beta",
-            "metadata": {"tenant": "beta", "kind": "stub"},
-            "chars": len("   \\n\\t"),
+            "source_id": "handbook-pad",
+            "metadata": {"tenant": "beta", "kind": "handbook"},
+            "chars": len("\t" + HANDBOOK),
+            "leading": 1,
+            "trailing": 0,
         },
     ]
     assert "text" not in result.data
-    assert all("text" not in item for item in result.data["blank"])
-    result.data["blank"][0]["metadata"]["tenant"] = "mutated"
+    assert all("text" not in item for item in result.data["padded"])
+    result.data["padded"][0]["metadata"]["tenant"] = "mutated"
     assert ingester.documents[1].metadata["tenant"] == "acme"
 
-    filtered = server.call("blank_sources", {"metadata": {"tenant": "acme"}})
+    filtered = server.call("padded_sources", {"metadata": {"tenant": "acme"}})
     assert filtered.ok is True
     assert filtered.draft is False
     assert filtered.data["sources"] == 3
-    assert [item["source_id"] for item in filtered.data["blank"]] == ["empty-acme"]
+    assert [item["source_id"] for item in filtered.data["padded"]] == ["policy-pad"]
     assert "text" not in filtered.data
 
-    no_ingester = MCPServer(retriever=Retriever(ingester)).call("blank_sources")
+    no_ingester = MCPServer(retriever=Retriever(ingester)).call("padded_sources")
     assert no_ingester.ok is False
     assert no_ingester.draft is False
     assert "ingester" in no_ingester.data["error"]
 
-    bad = server.call("blank_sources", {"metadata": {"tenant": 1}})
+    bad = server.call("padded_sources", {"metadata": {"tenant": 1}})
     assert bad.ok is False
     assert bad.draft is False
     assert "metadata" in bad.data["error"]
 
-    extra = server.call("blank_sources", {"metadata": {"tenant": "acme"}, "execute": True})
+    extra = server.call("padded_sources", {"metadata": {"tenant": "acme"}, "execute": True})
     assert extra.ok is False
     assert extra.draft is False
     assert "metadata" in extra.data["error"]
 
-    advertised = server.call("describe_tool", {"name": "blank_sources"})
+    advertised = server.call("describe_tool", {"name": "padded_sources"})
     assert advertised.ok is True
     assert advertised.data["mutates"] is False
     assert advertised.data["executed"] is False
