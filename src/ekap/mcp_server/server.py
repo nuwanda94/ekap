@@ -159,6 +159,11 @@ class MCPServer:
                 mutates=False,
             ),
             ToolSpec(
+                "casefold_sources",
+                "Group sources whose text matches after case folding. Does not return source text.",
+                mutates=False,
+            ),
+            ToolSpec(
                 "list_drafts",
                 "List recorded action drafts, optionally by status. Does not execute them.",
                 mutates=False,
@@ -243,6 +248,8 @@ class MCPServer:
             return self._missing_metadata(args)
         if name == "padded_sources":
             return self._padded_sources(args)
+        if name == "casefold_sources":
+            return self._casefold_sources(args)
         if name == "list_drafts":
             return self._list_drafts(args)
         if name == "get_draft":
@@ -1497,6 +1504,60 @@ class MCPServer:
             data={
                 "sources": len(documents),
                 "padded": padded,
+                "executed": False,
+            },
+        )
+
+    def _casefold_sources(self, args: dict[str, Any]) -> ToolResult:
+        extra = set(args) - {"metadata"}
+        if extra:
+            return ToolResult(
+                name="casefold_sources",
+                ok=False,
+                data={"error": "casefold_sources only accepts metadata"},
+            )
+        metadata = args.get("metadata")
+        metadata_error = _metadata_error(metadata)
+        if metadata_error is not None:
+            return ToolResult(name="casefold_sources", ok=False, data={"error": metadata_error})
+        if self._ingester is None:
+            return ToolResult(
+                name="casefold_sources",
+                ok=False,
+                data={"error": "no ingester configured"},
+            )
+        try:
+            documents = self._ingester.find(metadata=metadata)
+        except (TypeError, ValueError) as exc:
+            return ToolResult(name="casefold_sources", ok=False, data={"error": str(exc)})
+        groups: dict[str, list[Document]] = {}
+        order: list[str] = []
+        for document in documents:
+            key = document.text.casefold()
+            if key not in groups:
+                groups[key] = []
+                order.append(key)
+            groups[key].append(document)
+        folded = []
+        for key in order:
+            members = groups[key]
+            if len(members) < 2:
+                continue
+            first = members[0].text
+            folded.append(
+                {
+                    "source_ids": [document.source_id for document in members],
+                    "size": len(members),
+                    "chars": len(first),
+                    "identical": all(document.text == first for document in members),
+                }
+            )
+        return ToolResult(
+            name="casefold_sources",
+            ok=True,
+            data={
+                "sources": len(documents),
+                "groups": folded,
                 "executed": False,
             },
         )

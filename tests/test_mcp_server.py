@@ -1479,3 +1479,99 @@ def test_padded_sources_lists_leading_or_trailing_whitespace_without_returning_t
     assert server.drafts() == ()
     assert [document.source_id for document in ingester.documents] == before
     assert list(ingester.chunks) == stored
+
+
+
+def test_casefold_sources_groups_case_variants_without_returning_text() -> None:
+    ingester = Ingester()
+    executed: list[dict[str, str]] = []
+    server = MCPServer(
+        retriever=Retriever(ingester),
+        executor=executed.append,
+        ingester=ingester,
+    )
+
+    empty = server.call("casefold_sources")
+    assert empty.ok is True
+    assert empty.draft is False
+    assert empty.data == {"sources": 0, "groups": [], "executed": False}
+
+    ingester.add("policy-a", POLICY, metadata={"tenant": "acme", "kind": "policy"})
+    ingester.add("policy-upper", POLICY.upper(), metadata={"tenant": "acme", "kind": "policy"})
+    ingester.add("policy-copy", POLICY, metadata={"tenant": "beta", "kind": "policy"})
+    ingester.add("handbook-1", HANDBOOK, metadata={"tenant": "acme", "kind": "handbook"})
+    before = [document.source_id for document in ingester.documents]
+    stored = list(ingester.chunks)
+
+    result = server.call("casefold_sources")
+    assert result.ok is True
+    assert result.draft is False
+    assert result.data["sources"] == 4
+    assert result.data["executed"] is False
+    assert result.data["groups"] == [
+        {
+            "source_ids": ["policy-a", "policy-upper", "policy-copy"],
+            "size": 3,
+            "chars": len(POLICY),
+            "identical": False,
+        }
+    ]
+    assert "text" not in result.data
+    assert all("text" not in item for item in result.data["groups"])
+
+    filtered = server.call("casefold_sources", {"metadata": {"tenant": "beta"}})
+    assert filtered.ok is True
+    assert filtered.draft is False
+    assert filtered.data["sources"] == 1
+    assert filtered.data["groups"] == []
+
+    acme = server.call("casefold_sources", {"metadata": {"tenant": "acme"}})
+    assert acme.ok is True
+    assert acme.data["groups"] == [
+        {
+            "source_ids": ["policy-a", "policy-upper"],
+            "size": 2,
+            "chars": len(POLICY),
+            "identical": False,
+        }
+    ]
+
+    copies = Ingester()
+    copies.add("one", POLICY, metadata={"tenant": "acme"})
+    copies.add("two", POLICY, metadata={"tenant": "acme"})
+    exact = MCPServer(ingester=copies).call("casefold_sources")
+    assert exact.ok is True
+    assert exact.data["groups"] == [
+        {
+            "source_ids": ["one", "two"],
+            "size": 2,
+            "chars": len(POLICY),
+            "identical": True,
+        }
+    ]
+
+    no_ingester = MCPServer(retriever=Retriever(ingester)).call("casefold_sources")
+    assert no_ingester.ok is False
+    assert no_ingester.draft is False
+    assert "ingester" in no_ingester.data["error"]
+
+    bad = server.call("casefold_sources", {"metadata": {"tenant": 1}})
+    assert bad.ok is False
+    assert bad.draft is False
+    assert "metadata" in bad.data["error"]
+
+    extra = server.call("casefold_sources", {"metadata": {"tenant": "acme"}, "execute": True})
+    assert extra.ok is False
+    assert extra.draft is False
+    assert "metadata" in extra.data["error"]
+
+    advertised = server.call("describe_tool", {"name": "casefold_sources"})
+    assert advertised.ok is True
+    assert advertised.data["mutates"] is False
+    assert advertised.data["executed"] is False
+
+    assert executed == []
+    assert server.executed == []
+    assert server.drafts() == ()
+    assert [document.source_id for document in ingester.documents] == before
+    assert list(ingester.chunks) == stored
