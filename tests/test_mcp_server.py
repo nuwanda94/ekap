@@ -52,6 +52,7 @@ def test_health_is_callable() -> None:
     assert "query_coverage" in result.data["tools"]
     assert "query_gaps" in result.data["tools"]
     assert "exclusive_tokens" in result.data["tools"]
+    assert "shared_tokens" in result.data["tools"]
     assert "list_drafts" in result.data["tools"]
     assert "get_draft" in result.data["tools"]
     assert "cancel_draft" in result.data["tools"]
@@ -1049,3 +1050,84 @@ def test_exclusive_tokens_lists_unique_tokens_without_returning_text() -> None:
     assert server.drafts() == ()
     assert [document.source_id for document in ingester.documents] == before
     assert list(ingester.chunks) == stored
+
+def test_shared_tokens_lists_tokens_in_two_or_more_sources() -> None:
+    ingester = Ingester()
+    executed: list[dict[str, str]] = []
+    server = MCPServer(
+        retriever=Retriever(ingester),
+        executor=executed.append,
+        ingester=ingester,
+    )
+
+    empty = server.call("shared_tokens")
+    assert empty.ok is True
+    assert empty.draft is False
+    assert empty.data == {"sources": 0, "shared": [], "executed": False}
+
+    ingester.add("policy-a", POLICY, metadata={"tenant": "acme", "kind": "policy"})
+    ingester.add("policy-b", BETA_POLICY, metadata={"tenant": "beta", "kind": "policy"})
+    ingester.add("handbook-1", HANDBOOK, metadata={"tenant": "acme", "kind": "handbook"})
+    before = [document.source_id for document in ingester.documents]
+    stored = list(ingester.chunks)
+
+    result = server.call("shared_tokens")
+    assert result.ok is True
+    assert result.draft is False
+    assert result.data["sources"] == 3
+    assert result.data["executed"] is False
+    by_token = {item["token"]: item for item in result.data["shared"]}
+    assert by_token["portal"]["source_ids"] == ["policy-a", "policy-b"]
+    assert by_token["portal"]["sources"] == 2
+    assert "approval" in by_token
+    assert "manager" not in by_token
+    assert "vacation" not in by_token
+    assert "text" not in result.data
+    assert all("text" not in item for item in result.data["shared"])
+    portal_index = next(
+        index for index, item in enumerate(result.data["shared"]) if item["token"] == "portal"
+    )
+    expense_index = next(
+        index for index, item in enumerate(result.data["shared"]) if item["token"] == "expense"
+    )
+    assert expense_index < portal_index
+
+    alone = server.call("shared_tokens", {"metadata": {"kind": "handbook"}})
+    assert alone.ok is True
+    assert alone.data["sources"] == 1
+    assert alone.data["shared"] == []
+    assert alone.data["executed"] is False
+
+    filtered = server.call("shared_tokens", {"metadata": {"tenant": "acme"}})
+    assert filtered.ok is True
+    assert filtered.draft is False
+    assert filtered.data["sources"] == 2
+    filtered_tokens = {item["token"] for item in filtered.data["shared"]}
+    assert filtered_tokens == set()
+
+    no_ingester = MCPServer(retriever=Retriever(ingester)).call("shared_tokens")
+    assert no_ingester.ok is False
+    assert no_ingester.draft is False
+    assert "ingester" in no_ingester.data["error"]
+
+    bad = server.call("shared_tokens", {"metadata": {"tenant": 1}})
+    assert bad.ok is False
+    assert bad.draft is False
+    assert "metadata" in bad.data["error"]
+
+    extra = server.call("shared_tokens", {"metadata": {"tenant": "acme"}, "execute": True})
+    assert extra.ok is False
+    assert extra.draft is False
+    assert "metadata" in extra.data["error"]
+
+    advertised = server.call("describe_tool", {"name": "shared_tokens"})
+    assert advertised.ok is True
+    assert advertised.data["mutates"] is False
+    assert advertised.data["executed"] is False
+
+    assert executed == []
+    assert server.executed == []
+    assert server.drafts() == ()
+    assert [document.source_id for document in ingester.documents] == before
+    assert list(ingester.chunks) == stored
+
