@@ -59,6 +59,7 @@ def test_health_is_callable() -> None:
     assert "normalize_sources" in result.data["tools"]
     assert "punctfold_sources" in result.data["tools"]
     assert "accentfold_sources" in result.data["tools"]
+    assert "blank_sources" in result.data["tools"]
     assert "list_drafts" in result.data["tools"]
     assert "get_draft" in result.data["tools"]
     assert "cancel_draft" in result.data["tools"]
@@ -1253,7 +1254,7 @@ def test_duplicate_sources_groups_identical_text_without_returning_it() -> None:
     result = server.call("duplicate_sources")
     assert result.ok is True
     assert result.draft is False
-    assert result.data["sources"] == 6
+    assert result.data["sources"] == 5
     assert result.data["executed"] is False
     assert result.data["duplicates"] == [
         {"source_ids": ["policy-a", "policy-copy"], "sources": 2, "chars": len(POLICY)},
@@ -1706,7 +1707,7 @@ def test_collapse_sources_groups_whitespace_variants_without_returning_text() ->
     result = server.call("collapse_sources")
     assert result.ok is True
     assert result.draft is False
-    assert result.data["sources"] == 6
+    assert result.data["sources"] == 5
     assert result.data["executed"] is False
     assert result.data["groups"] == [
         {
@@ -2149,6 +2150,113 @@ def test_accentfold_sources_groups_accent_variants_without_returning_text() -> N
     assert "only accepts metadata" in extra.data["error"]
 
     advertised = server.call("describe_tool", {"name": "accentfold_sources"})
+    assert advertised.ok is True
+    assert advertised.data["mutates"] is False
+    assert advertised.data["executed"] is False
+
+    assert executed == []
+    assert server.executed == []
+    assert server.drafts() == ()
+    assert [document.source_id for document in ingester.documents] == before
+    assert list(ingester.chunks) == stored
+
+
+def test_blank_sources_lists_contentless_sources_without_returning_text() -> None:
+    ingester = Ingester()
+    executed: list[dict[str, str]] = []
+    server = MCPServer(
+        retriever=Retriever(ingester),
+        executor=executed.append,
+        ingester=ingester,
+    )
+
+    empty = server.call("blank_sources")
+    assert empty.ok is True
+    assert empty.draft is False
+    assert empty.data == {"sources": 0, "blank": [], "executed": False}
+
+    punct = " -- ... !!! "
+    spaced = "--   ..."
+    accent = "\u00b4\u0301"
+    ingester.add("policy-a", POLICY, metadata={"tenant": "acme", "kind": "policy"})
+    ingester.add("blank-punct", punct, metadata={"tenant": "beta", "kind": "note"})
+    ingester.add("blank-space", spaced, metadata={"tenant": "acme", "kind": "note"})
+    ingester.add("blank-accent", accent, metadata={"tenant": "acme", "kind": "note"})
+    ingester.add("policy-letter", "Expenses", metadata={"tenant": "acme", "kind": "policy"})
+    before = [document.source_id for document in ingester.documents]
+    stored = list(ingester.chunks)
+
+    result = server.call("blank_sources")
+    assert result.ok is True
+    assert result.draft is False
+    assert result.data["sources"] == 5
+    assert result.data["executed"] is False
+    assert result.data["blank"] == [
+        {
+            "source_id": "blank-punct",
+            "metadata": {"tenant": "beta", "kind": "note"},
+            "chars": len(punct),
+            "folded_chars": 0,
+            "empty": False,
+            "padded": True,
+            "collapsed": True,
+            "punctuation_only": True,
+        },
+        {
+            "source_id": "blank-space",
+            "metadata": {"tenant": "acme", "kind": "note"},
+            "chars": len(spaced),
+            "folded_chars": 0,
+            "empty": False,
+            "padded": False,
+            "collapsed": True,
+            "punctuation_only": True,
+        },
+        {
+            "source_id": "blank-accent",
+            "metadata": {"tenant": "acme", "kind": "note"},
+            "chars": len(accent),
+            "folded_chars": 0,
+            "empty": False,
+            "padded": False,
+            "collapsed": False,
+            "punctuation_only": True,
+        },
+    ]
+    assert "text" not in result.data
+    assert all("text" not in item for item in result.data["blank"])
+    returned = result.data["blank"][0]["metadata"]
+    returned["tenant"] = "mutated"
+    assert ingester.documents[1].metadata["tenant"] == "beta"
+
+    filtered = server.call("blank_sources", {"metadata": {"tenant": "beta"}})
+    assert filtered.ok is True
+    assert filtered.draft is False
+    assert [item["source_id"] for item in filtered.data["blank"]] == ["blank-punct"]
+
+    notes = server.call("blank_sources", {"metadata": {"tenant": "acme", "kind": "note"}})
+    assert notes.ok is True
+    assert [item["source_id"] for item in notes.data["blank"]] == [
+        "blank-space",
+        "blank-accent",
+    ]
+
+    no_ingester = MCPServer(retriever=Retriever(ingester)).call("blank_sources")
+    assert no_ingester.ok is False
+    assert no_ingester.draft is False
+    assert no_ingester.data["error"] == "no ingester configured"
+
+    bad = server.call("blank_sources", {"metadata": {"tenant": 1}})
+    assert bad.ok is False
+    assert bad.draft is False
+    assert "metadata" in bad.data["error"]
+
+    extra = server.call("blank_sources", {"metadata": {"tenant": "acme"}, "execute": True})
+    assert extra.ok is False
+    assert extra.draft is False
+    assert "only accepts metadata" in extra.data["error"]
+
+    advertised = server.call("describe_tool", {"name": "blank_sources"})
     assert advertised.ok is True
     assert advertised.data["mutates"] is False
     assert advertised.data["executed"] is False

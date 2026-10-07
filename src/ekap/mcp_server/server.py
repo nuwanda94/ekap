@@ -190,6 +190,11 @@ class MCPServer:
                 mutates=False,
             ),
             ToolSpec(
+                "blank_sources",
+                "List sources with no letters or digits after accent folding. Does not return text.",
+                mutates=False,
+            ),
+            ToolSpec(
                 "list_drafts",
                 "List recorded action drafts, optionally by status. Does not execute them.",
                 mutates=False,
@@ -286,6 +291,8 @@ class MCPServer:
             return self._punctfold_sources(args)
         if name == "accentfold_sources":
             return self._accentfold_sources(args)
+        if name == "blank_sources":
+            return self._blank_sources(args)
         if name == "list_drafts":
             return self._list_drafts(args)
         if name == "get_draft":
@@ -1911,6 +1918,55 @@ class MCPServer:
             data={
                 "sources": len(documents),
                 "groups": folded,
+                "executed": False,
+            },
+        )
+
+    def _blank_sources(self, args: dict[str, Any]) -> ToolResult:
+        extra = set(args) - {"metadata"}
+        if extra:
+            return ToolResult(
+                name="blank_sources",
+                ok=False,
+                data={"error": "blank_sources only accepts metadata"},
+            )
+        metadata = args.get("metadata")
+        metadata_error = _metadata_error(metadata)
+        if metadata_error is not None:
+            return ToolResult(name="blank_sources", ok=False, data={"error": metadata_error})
+        if self._ingester is None:
+            return ToolResult(
+                name="blank_sources",
+                ok=False,
+                data={"error": "no ingester configured"},
+            )
+        try:
+            documents = self._ingester.find(metadata=metadata)
+        except (TypeError, ValueError) as exc:
+            return ToolResult(name="blank_sources", ok=False, data={"error": str(exc)})
+        blanks = []
+        for document in documents:
+            folded = _accentfold_text(document.text)
+            if _ALNUM.search(folded):
+                continue
+            blanks.append(
+                {
+                    "source_id": document.source_id,
+                    "metadata": dict(document.metadata),
+                    "chars": len(document.text),
+                    "folded_chars": len(folded),
+                    "empty": document.text == "",
+                    "padded": document.text != document.text.strip(),
+                    "collapsed": _collapse_ws(document.text) != document.text,
+                    "punctuation_only": bool(document.text.strip()) and not _ALNUM.search(folded),
+                }
+            )
+        return ToolResult(
+            name="blank_sources",
+            ok=True,
+            data={
+                "sources": len(documents),
+                "blank": blanks,
                 "executed": False,
             },
         )
