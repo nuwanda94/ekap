@@ -55,6 +55,7 @@ def test_health_is_callable() -> None:
     assert "shared_tokens" in result.data["tools"]
     assert "metadata_facets" in result.data["tools"]
     assert "duplicate_sources" in result.data["tools"]
+    assert "normalize_sources" in result.data["tools"]
     assert "list_drafts" in result.data["tools"]
     assert "get_draft" in result.data["tools"]
     assert "cancel_draft" in result.data["tools"]
@@ -1767,6 +1768,123 @@ def test_collapse_sources_groups_whitespace_variants_without_returning_text() ->
     assert "only accepts metadata" in extra.data["error"]
 
     advertised = server.call("describe_tool", {"name": "collapse_sources"})
+    assert advertised.ok is True
+    assert advertised.data["mutates"] is False
+    assert advertised.data["executed"] is False
+
+    assert executed == []
+    assert server.executed == []
+    assert server.drafts() == ()
+    assert [document.source_id for document in ingester.documents] == before
+    assert list(ingester.chunks) == stored
+
+
+def test_normalize_sources_groups_case_and_whitespace_variants_without_returning_text() -> None:
+    ingester = Ingester()
+    executed: list[dict[str, str]] = []
+    server = MCPServer(
+        retriever=Retriever(ingester),
+        executor=executed.append,
+        ingester=ingester,
+    )
+
+    empty = server.call("normalize_sources")
+    assert empty.ok is True
+    assert empty.draft is False
+    assert empty.data == {"sources": 0, "groups": [], "executed": False}
+
+    interior = POLICY.replace(" ", "  ", 1)
+    ingester.add("policy-a", POLICY, metadata={"tenant": "acme", "kind": "policy"})
+    ingester.add("policy-pad", f"  {POLICY}  ", metadata={"tenant": "acme", "kind": "policy"})
+    ingester.add("policy-interior", interior, metadata={"tenant": "acme", "kind": "policy"})
+    ingester.add("policy-copy", POLICY, metadata={"tenant": "beta", "kind": "policy"})
+    ingester.add("handbook-1", HANDBOOK, metadata={"tenant": "acme", "kind": "handbook"})
+    ingester.add("policy-case", POLICY.upper(), metadata={"tenant": "acme", "kind": "policy"})
+    ingester.add(
+        "policy-punct",
+        POLICY.replace(".", "!", 1),
+        metadata={"tenant": "acme", "kind": "policy"},
+    )
+    before = [document.source_id for document in ingester.documents]
+    stored = list(ingester.chunks)
+
+    result = server.call("normalize_sources")
+    assert result.ok is True
+    assert result.draft is False
+    assert result.data["sources"] == 7
+    assert result.data["executed"] is False
+    assert result.data["groups"] == [
+        {
+            "source_ids": [
+                "policy-a",
+                "policy-pad",
+                "policy-interior",
+                "policy-copy",
+                "policy-case",
+            ],
+            "size": 5,
+            "chars": len(POLICY),
+            "identical": False,
+            "padded": True,
+            "collapsed": True,
+            "folded": True,
+        }
+    ]
+    assert "text" not in result.data
+    assert all("text" not in item for item in result.data["groups"])
+
+    filtered = server.call("normalize_sources", {"metadata": {"tenant": "beta"}})
+    assert filtered.ok is True
+    assert filtered.draft is False
+    assert filtered.data["sources"] == 1
+    assert filtered.data["groups"] == []
+
+    acme = server.call("normalize_sources", {"metadata": {"tenant": "acme", "kind": "policy"}})
+    assert acme.ok is True
+    assert acme.data["groups"] == [
+        {
+            "source_ids": ["policy-a", "policy-pad", "policy-interior", "policy-case"],
+            "size": 4,
+            "chars": len(POLICY),
+            "identical": False,
+            "padded": True,
+            "collapsed": True,
+            "folded": True,
+        }
+    ]
+
+    copies = Ingester()
+    copies.add("one", POLICY, metadata={"tenant": "acme"})
+    copies.add("two", POLICY, metadata={"tenant": "acme"})
+    exact = MCPServer(ingester=copies).call("normalize_sources")
+    assert exact.ok is True
+    assert exact.data["groups"] == [
+        {
+            "source_ids": ["one", "two"],
+            "size": 2,
+            "chars": len(POLICY),
+            "identical": True,
+            "padded": False,
+            "collapsed": False,
+            "folded": False,
+        }
+    ]
+
+    no_ingester = MCPServer(retriever=Retriever(ingester)).call("normalize_sources")
+    assert no_ingester.ok is False
+    assert no_ingester.data["error"] == "no ingester configured"
+    assert executed == []
+
+    bad = server.call("normalize_sources", {"metadata": {"tenant": 1}})
+    assert bad.ok is False
+    assert "metadata" in bad.data["error"]
+
+    extra = server.call("normalize_sources", {"metadata": {"tenant": "acme"}, "execute": True})
+    assert extra.ok is False
+    assert extra.draft is False
+    assert "only accepts metadata" in extra.data["error"]
+
+    advertised = server.call("describe_tool", {"name": "normalize_sources"})
     assert advertised.ok is True
     assert advertised.data["mutates"] is False
     assert advertised.data["executed"] is False
