@@ -205,6 +205,11 @@ class MCPServer:
                 mutates=False,
             ),
             ToolSpec(
+                "line_ending_sources",
+                "List sources that use CR or CRLF line endings. Does not return text.",
+                mutates=False,
+            ),
+            ToolSpec(
                 "list_drafts",
                 "List recorded action drafts, optionally by status. Does not execute them.",
                 mutates=False,
@@ -307,6 +312,8 @@ class MCPServer:
             return self._control_sources(args)
         if name == "replacement_sources":
             return self._replacement_sources(args)
+        if name == "line_ending_sources":
+            return self._line_ending_sources(args)
         if name == "list_drafts":
             return self._list_drafts(args)
         if name == "get_draft":
@@ -2077,6 +2084,55 @@ class MCPServer:
             },
         )
 
+    def _line_ending_sources(self, args: dict[str, Any]) -> ToolResult:
+        extra = set(args) - {"metadata"}
+        if extra:
+            return ToolResult(
+                name="line_ending_sources",
+                ok=False,
+                data={"error": "line_ending_sources only accepts metadata"},
+            )
+        metadata = args.get("metadata")
+        metadata_error = _metadata_error(metadata)
+        if metadata_error is not None:
+            return ToolResult(name="line_ending_sources", ok=False, data={"error": metadata_error})
+        if self._ingester is None:
+            return ToolResult(
+                name="line_ending_sources",
+                ok=False,
+                data={"error": "no ingester configured"},
+            )
+        try:
+            documents = self._ingester.find(metadata=metadata)
+        except (TypeError, ValueError) as exc:
+            return ToolResult(name="line_ending_sources", ok=False, data={"error": str(exc)})
+        flagged = []
+        for document in documents:
+            lf, crlf, bare_cr = _line_ending_counts(document.text)
+            if crlf == 0 and bare_cr == 0:
+                continue
+            kinds = sum(count > 0 for count in (lf, crlf, bare_cr))
+            flagged.append(
+                {
+                    "source_id": document.source_id,
+                    "metadata": dict(document.metadata),
+                    "chars": len(document.text),
+                    "lf": lf,
+                    "crlf": crlf,
+                    "bare_cr": bare_cr,
+                    "mixed": kinds > 1,
+                }
+            )
+        return ToolResult(
+            name="line_ending_sources",
+            ok=True,
+            data={
+                "sources": len(documents),
+                "flagged": flagged,
+                "executed": False,
+            },
+        )
+
     def _record_draft(self, action: str, target: str) -> _ActionDraft:
         draft = _ActionDraft(
             draft_id=f"draft-{len(self._drafts) + 1}",
@@ -2088,6 +2144,15 @@ class MCPServer:
 
 
 
+
+
+
+def _line_ending_counts(text: str) -> tuple[int, int, int]:
+    """Count LF, CRLF, and bare CR endings. A CRLF pair is not also a bare CR or LF."""
+    crlf = text.count("\r\n")
+    bare_cr = text.count("\r") - crlf
+    lf = text.count("\n") - crlf
+    return lf, crlf, bare_cr
 
 
 def _collapse_ws(text: str) -> str:

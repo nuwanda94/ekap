@@ -62,6 +62,7 @@ def test_health_is_callable() -> None:
     assert "blank_sources" in result.data["tools"]
     assert "control_sources" in result.data["tools"]
     assert "replacement_sources" in result.data["tools"]
+    assert "line_ending_sources" in result.data["tools"]
     assert "list_drafts" in result.data["tools"]
     assert "get_draft" in result.data["tools"]
     assert "cancel_draft" in result.data["tools"]
@@ -2442,6 +2443,108 @@ def test_replacement_sources_lists_replacement_characters_without_returning_text
     assert "only accepts metadata" in extra.data["error"]
 
     advertised = server.call("describe_tool", {"name": "replacement_sources"})
+    assert advertised.ok is True
+    assert advertised.data["mutates"] is False
+    assert advertised.data["executed"] is False
+
+    assert executed == []
+    assert server.executed == []
+    assert server.drafts() == ()
+    assert [document.source_id for document in ingester.documents] == before
+    assert list(ingester.chunks) == stored
+
+
+def test_line_ending_sources_lists_cr_endings_without_returning_text() -> None:
+    ingester = Ingester()
+    executed: list[dict[str, str]] = []
+    server = MCPServer(
+        retriever=Retriever(ingester),
+        executor=executed.append,
+        ingester=ingester,
+    )
+
+    empty = server.call("line_ending_sources")
+    assert empty.ok is True
+    assert empty.draft is False
+    assert empty.data == {"sources": 0, "flagged": [], "executed": False}
+
+    unix = "Travel must be booked\nthrough the portal.\n"
+    windows = "Vacation rolls over\r\nup to 10 days.\r\n"
+    classic = "Page one\rPage two\r"
+    mixed = "Alpha\r\nBeta\nGamma\r"
+    ingester.add("unix-a", unix, metadata={"tenant": "acme", "kind": "policy"})
+    ingester.add("win-a", windows, metadata={"tenant": "beta", "kind": "note"})
+    ingester.add("unix-b", "No breaks here.", metadata={"tenant": "acme", "kind": "note"})
+    ingester.add("cr-a", classic, metadata={"tenant": "acme", "kind": "note"})
+    ingester.add("mix-a", mixed, metadata={"tenant": "acme", "kind": "policy"})
+    before = [document.source_id for document in ingester.documents]
+    stored = list(ingester.chunks)
+
+    result = server.call("line_ending_sources")
+    assert result.ok is True
+    assert result.draft is False
+    assert result.data["sources"] == 5
+    assert result.data["executed"] is False
+    assert result.data["flagged"] == [
+        {
+            "source_id": "win-a",
+            "metadata": {"tenant": "beta", "kind": "note"},
+            "chars": len(windows),
+            "lf": 0,
+            "crlf": 2,
+            "bare_cr": 0,
+            "mixed": False,
+        },
+        {
+            "source_id": "cr-a",
+            "metadata": {"tenant": "acme", "kind": "note"},
+            "chars": len(classic),
+            "lf": 0,
+            "crlf": 0,
+            "bare_cr": 2,
+            "mixed": False,
+        },
+        {
+            "source_id": "mix-a",
+            "metadata": {"tenant": "acme", "kind": "policy"},
+            "chars": len(mixed),
+            "lf": 1,
+            "crlf": 1,
+            "bare_cr": 1,
+            "mixed": True,
+        },
+    ]
+    assert "text" not in result.data
+    assert all("text" not in item for item in result.data["flagged"])
+    returned = result.data["flagged"][0]["metadata"]
+    returned["tenant"] = "mutated"
+    assert ingester.documents[1].metadata["tenant"] == "beta"
+
+    filtered = server.call("line_ending_sources", {"metadata": {"tenant": "beta"}})
+    assert filtered.ok is True
+    assert filtered.draft is False
+    assert [item["source_id"] for item in filtered.data["flagged"]] == ["win-a"]
+
+    notes = server.call("line_ending_sources", {"metadata": {"tenant": "acme", "kind": "note"}})
+    assert notes.ok is True
+    assert [item["source_id"] for item in notes.data["flagged"]] == ["cr-a"]
+
+    no_ingester = MCPServer(retriever=Retriever(ingester)).call("line_ending_sources")
+    assert no_ingester.ok is False
+    assert no_ingester.draft is False
+    assert no_ingester.data["error"] == "no ingester configured"
+
+    bad = server.call("line_ending_sources", {"metadata": {"tenant": 1}})
+    assert bad.ok is False
+    assert bad.draft is False
+    assert "metadata" in bad.data["error"]
+
+    extra = server.call("line_ending_sources", {"metadata": {"tenant": "acme"}, "execute": True})
+    assert extra.ok is False
+    assert extra.draft is False
+    assert "only accepts metadata" in extra.data["error"]
+
+    advertised = server.call("describe_tool", {"name": "line_ending_sources"})
     assert advertised.ok is True
     assert advertised.data["mutates"] is False
     assert advertised.data["executed"] is False
