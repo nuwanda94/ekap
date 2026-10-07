@@ -1102,8 +1102,14 @@ def test_shared_tokens_lists_tokens_in_two_or_more_sources() -> None:
     assert filtered.ok is True
     assert filtered.draft is False
     assert filtered.data["sources"] == 2
-    filtered_tokens = {item["token"] for item in filtered.data["shared"]}
-    assert filtered_tokens == set()
+    filtered_by_token = {item["token"]: item for item in filtered.data["shared"]}
+    # Policy and handbook both contain "over"; other acme tokens stay exclusive.
+    assert set(filtered_by_token) == {"over"}
+    assert filtered_by_token["over"]["source_ids"] == ["policy-a", "handbook-1"]
+    assert filtered_by_token["over"]["sources"] == 2
+    assert "portal" not in filtered_by_token
+    assert "text" not in filtered.data
+    assert "text" not in filtered_by_token["over"]
 
     no_ingester = MCPServer(retriever=Retriever(ingester)).call("shared_tokens")
     assert no_ingester.ok is False
