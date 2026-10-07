@@ -195,6 +195,11 @@ class MCPServer:
                 mutates=False,
             ),
             ToolSpec(
+                "control_sources",
+                "List sources with control or format characters. Does not return text.",
+                mutates=False,
+            ),
+            ToolSpec(
                 "list_drafts",
                 "List recorded action drafts, optionally by status. Does not execute them.",
                 mutates=False,
@@ -293,6 +298,8 @@ class MCPServer:
             return self._accentfold_sources(args)
         if name == "blank_sources":
             return self._blank_sources(args)
+        if name == "control_sources":
+            return self._control_sources(args)
         if name == "list_drafts":
             return self._list_drafts(args)
         if name == "get_draft":
@@ -1971,6 +1978,53 @@ class MCPServer:
             },
         )
 
+    def _control_sources(self, args: dict[str, Any]) -> ToolResult:
+        extra = set(args) - {"metadata"}
+        if extra:
+            return ToolResult(
+                name="control_sources",
+                ok=False,
+                data={"error": "control_sources only accepts metadata"},
+            )
+        metadata = args.get("metadata")
+        metadata_error = _metadata_error(metadata)
+        if metadata_error is not None:
+            return ToolResult(name="control_sources", ok=False, data={"error": metadata_error})
+        if self._ingester is None:
+            return ToolResult(
+                name="control_sources",
+                ok=False,
+                data={"error": "no ingester configured"},
+            )
+        try:
+            documents = self._ingester.find(metadata=metadata)
+        except (TypeError, ValueError) as exc:
+            return ToolResult(name="control_sources", ok=False, data={"error": str(exc)})
+        flagged = []
+        for document in documents:
+            controls, formats, zero_width = _control_counts(document.text)
+            if controls == 0 and formats == 0:
+                continue
+            flagged.append(
+                {
+                    "source_id": document.source_id,
+                    "metadata": dict(document.metadata),
+                    "chars": len(document.text),
+                    "controls": controls,
+                    "formats": formats,
+                    "zero_width": zero_width,
+                }
+            )
+        return ToolResult(
+            name="control_sources",
+            ok=True,
+            data={
+                "sources": len(documents),
+                "flagged": flagged,
+                "executed": False,
+            },
+        )
+
     def _record_draft(self, action: str, target: str) -> _ActionDraft:
         draft = _ActionDraft(
             draft_id=f"draft-{len(self._drafts) + 1}",
@@ -2012,6 +2066,30 @@ def _accentfold_text(text: str) -> str:
     decomposed = unicodedata.normalize("NFKD", _punctfold_text(text))
     kept = "".join(ch for ch in decomposed if unicodedata.category(ch) != "Mn")
     return _collapse_ws(kept)
+
+
+
+_ZERO_WIDTH = frozenset({"\u200b", "\u200c", "\u200d", "\u2060", "\ufeff"})
+_COMMON_WHITESPACE_CONTROLS = frozenset({"\t", "\n", "\r"})
+
+
+def _control_counts(text: str) -> tuple[int, int, int]:
+    """Count uncommon controls, format characters, and zero-width characters.
+
+    Tab, newline, and carriage return are ordinary whitespace and do not count.
+    """
+    controls = 0
+    formats = 0
+    zero_width = 0
+    for char in text:
+        category = unicodedata.category(char)
+        if category == "Cf":
+            formats += 1
+            if char in _ZERO_WIDTH:
+                zero_width += 1
+        elif category == "Cc" and char not in _COMMON_WHITESPACE_CONTROLS:
+            controls += 1
+    return controls, formats, zero_width
 
 
 def _query_tokens(text: str) -> list[str]:

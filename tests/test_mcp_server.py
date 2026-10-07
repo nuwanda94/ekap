@@ -60,6 +60,7 @@ def test_health_is_callable() -> None:
     assert "punctfold_sources" in result.data["tools"]
     assert "accentfold_sources" in result.data["tools"]
     assert "blank_sources" in result.data["tools"]
+    assert "control_sources" in result.data["tools"]
     assert "list_drafts" in result.data["tools"]
     assert "get_draft" in result.data["tools"]
     assert "cancel_draft" in result.data["tools"]
@@ -2257,6 +2258,105 @@ def test_blank_sources_lists_contentless_sources_without_returning_text() -> Non
     assert "only accepts metadata" in extra.data["error"]
 
     advertised = server.call("describe_tool", {"name": "blank_sources"})
+    assert advertised.ok is True
+    assert advertised.data["mutates"] is False
+    assert advertised.data["executed"] is False
+
+    assert executed == []
+    assert server.executed == []
+    assert server.drafts() == ()
+    assert [document.source_id for document in ingester.documents] == before
+    assert list(ingester.chunks) == stored
+
+
+def test_control_sources_lists_hidden_characters_without_returning_text() -> None:
+    ingester = Ingester()
+    executed: list[dict[str, str]] = []
+    server = MCPServer(
+        retriever=Retriever(ingester),
+        executor=executed.append,
+        ingester=ingester,
+    )
+
+    empty = server.call("control_sources")
+    assert empty.ok is True
+    assert empty.draft is False
+    assert empty.data == {"sources": 0, "flagged": [], "executed": False}
+
+    zwsp = "Expenses\u200b approved"
+    bom = "\ufeffTravel portal"
+    bell = "Alert\u0007 now"
+    multiline = "Line one\nLine two\tkept"
+    ingester.add("policy-a", POLICY, metadata={"tenant": "acme", "kind": "policy"})
+    ingester.add("hidden-zwsp", zwsp, metadata={"tenant": "beta", "kind": "note"})
+    ingester.add("hidden-bom", bom, metadata={"tenant": "acme", "kind": "note"})
+    ingester.add("hidden-bell", bell, metadata={"tenant": "acme", "kind": "note"})
+    ingester.add("plain-lines", multiline, metadata={"tenant": "acme", "kind": "note"})
+    before = [document.source_id for document in ingester.documents]
+    stored = list(ingester.chunks)
+
+    result = server.call("control_sources")
+    assert result.ok is True
+    assert result.draft is False
+    assert result.data["sources"] == 5
+    assert result.data["executed"] is False
+    assert result.data["flagged"] == [
+        {
+            "source_id": "hidden-zwsp",
+            "metadata": {"tenant": "beta", "kind": "note"},
+            "chars": len(zwsp),
+            "controls": 0,
+            "formats": 1,
+            "zero_width": 1,
+        },
+        {
+            "source_id": "hidden-bom",
+            "metadata": {"tenant": "acme", "kind": "note"},
+            "chars": len(bom),
+            "controls": 0,
+            "formats": 1,
+            "zero_width": 1,
+        },
+        {
+            "source_id": "hidden-bell",
+            "metadata": {"tenant": "acme", "kind": "note"},
+            "chars": len(bell),
+            "controls": 1,
+            "formats": 0,
+            "zero_width": 0,
+        },
+    ]
+    assert "text" not in result.data
+    assert all("text" not in item for item in result.data["flagged"])
+    returned = result.data["flagged"][0]["metadata"]
+    returned["tenant"] = "mutated"
+    assert ingester.documents[1].metadata["tenant"] == "beta"
+
+    filtered = server.call("control_sources", {"metadata": {"tenant": "beta"}})
+    assert filtered.ok is True
+    assert filtered.draft is False
+    assert [item["source_id"] for item in filtered.data["flagged"]] == ["hidden-zwsp"]
+
+    notes = server.call("control_sources", {"metadata": {"tenant": "acme", "kind": "note"}})
+    assert notes.ok is True
+    assert [item["source_id"] for item in notes.data["flagged"]] == ["hidden-bom", "hidden-bell"]
+
+    no_ingester = MCPServer(retriever=Retriever(ingester)).call("control_sources")
+    assert no_ingester.ok is False
+    assert no_ingester.draft is False
+    assert no_ingester.data["error"] == "no ingester configured"
+
+    bad = server.call("control_sources", {"metadata": {"tenant": 1}})
+    assert bad.ok is False
+    assert bad.draft is False
+    assert "metadata" in bad.data["error"]
+
+    extra = server.call("control_sources", {"metadata": {"tenant": "acme"}, "execute": True})
+    assert extra.ok is False
+    assert extra.draft is False
+    assert "only accepts metadata" in extra.data["error"]
+
+    advertised = server.call("describe_tool", {"name": "control_sources"})
     assert advertised.ok is True
     assert advertised.data["mutates"] is False
     assert advertised.data["executed"] is False
