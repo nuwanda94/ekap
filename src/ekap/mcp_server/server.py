@@ -139,6 +139,11 @@ class MCPServer:
                 mutates=False,
             ),
             ToolSpec(
+                "metadata_facets",
+                "List distinct metadata keys and values across matching sources. Does not return source text.",
+                mutates=False,
+            ),
+            ToolSpec(
                 "list_drafts",
                 "List recorded action drafts, optionally by status. Does not execute them.",
                 mutates=False,
@@ -215,6 +220,8 @@ class MCPServer:
             return self._exclusive_tokens(args)
         if name == "shared_tokens":
             return self._shared_tokens(args)
+        if name == "metadata_facets":
+            return self._metadata_facets(args)
         if name == "list_drafts":
             return self._list_drafts(args)
         if name == "get_draft":
@@ -1267,6 +1274,66 @@ class MCPServer:
             data={
                 "sources": len(documents),
                 "shared": shared,
+                "executed": False,
+            },
+        )
+
+    def _metadata_facets(self, args: dict[str, Any]) -> ToolResult:
+        extra = set(args) - {"metadata"}
+        if extra:
+            return ToolResult(
+                name="metadata_facets",
+                ok=False,
+                data={"error": "metadata_facets only accepts metadata"},
+            )
+        metadata = args.get("metadata")
+        metadata_error = _metadata_error(metadata)
+        if metadata_error is not None:
+            return ToolResult(name="metadata_facets", ok=False, data={"error": metadata_error})
+        if self._ingester is None:
+            return ToolResult(
+                name="metadata_facets",
+                ok=False,
+                data={"error": "no ingester configured"},
+            )
+        try:
+            documents = self._ingester.find(metadata=metadata)
+        except (TypeError, ValueError) as exc:
+            return ToolResult(name="metadata_facets", ok=False, data={"error": str(exc)})
+        key_order: list[str] = []
+        value_order: dict[str, list[str]] = {}
+        owners: dict[str, dict[str, list[str]]] = {}
+        for document in documents:
+            for key, value in document.metadata.items():
+                if key not in owners:
+                    owners[key] = {}
+                    value_order[key] = []
+                    key_order.append(key)
+                if value not in owners[key]:
+                    owners[key][value] = []
+                    value_order[key].append(value)
+                if document.source_id not in owners[key][value]:
+                    owners[key][value].append(document.source_id)
+        facets = [
+            {
+                "key": key,
+                "values": [
+                    {
+                        "value": value,
+                        "source_ids": owners[key][value],
+                        "sources": len(owners[key][value]),
+                    }
+                    for value in value_order[key]
+                ],
+            }
+            for key in key_order
+        ]
+        return ToolResult(
+            name="metadata_facets",
+            ok=True,
+            data={
+                "sources": len(documents),
+                "facets": facets,
                 "executed": False,
             },
         )

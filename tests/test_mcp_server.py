@@ -53,6 +53,7 @@ def test_health_is_callable() -> None:
     assert "query_gaps" in result.data["tools"]
     assert "exclusive_tokens" in result.data["tools"]
     assert "shared_tokens" in result.data["tools"]
+    assert "metadata_facets" in result.data["tools"]
     assert "list_drafts" in result.data["tools"]
     assert "get_draft" in result.data["tools"]
     assert "cancel_draft" in result.data["tools"]
@@ -1137,3 +1138,85 @@ def test_shared_tokens_lists_tokens_in_two_or_more_sources() -> None:
     assert [document.source_id for document in ingester.documents] == before
     assert list(ingester.chunks) == stored
 
+
+
+def test_metadata_facets_lists_keys_and_values_without_returning_text() -> None:
+    ingester = Ingester()
+    executed: list[dict[str, str]] = []
+    server = MCPServer(
+        retriever=Retriever(ingester),
+        executor=executed.append,
+        ingester=ingester,
+    )
+
+    empty = server.call("metadata_facets")
+    assert empty.ok is True
+    assert empty.draft is False
+    assert empty.data == {"sources": 0, "facets": [], "executed": False}
+
+    ingester.add("policy-a", POLICY, metadata={"tenant": "acme", "kind": "policy"})
+    ingester.add("policy-b", BETA_POLICY, metadata={"tenant": "beta", "kind": "policy"})
+    ingester.add("handbook-1", HANDBOOK, metadata={"tenant": "acme", "kind": "handbook"})
+    ingester.add("note-1", "Internal note.", metadata={})
+    before = [document.source_id for document in ingester.documents]
+    stored = list(ingester.chunks)
+
+    result = server.call("metadata_facets")
+    assert result.ok is True
+    assert result.draft is False
+    assert result.data["sources"] == 4
+    assert result.data["executed"] is False
+    assert [item["key"] for item in result.data["facets"]] == ["tenant", "kind"]
+    by_key = {item["key"]: item for item in result.data["facets"]}
+    assert by_key["tenant"]["values"] == [
+        {"value": "acme", "source_ids": ["policy-a", "handbook-1"], "sources": 2},
+        {"value": "beta", "source_ids": ["policy-b"], "sources": 1},
+    ]
+    assert by_key["kind"]["values"] == [
+        {"value": "policy", "source_ids": ["policy-a", "policy-b"], "sources": 2},
+        {"value": "handbook", "source_ids": ["handbook-1"], "sources": 1},
+    ]
+    assert "text" not in result.data
+    assert all("text" not in item for item in result.data["facets"])
+    assert all("text" not in value for item in result.data["facets"] for value in item["values"])
+
+    filtered = server.call("metadata_facets", {"metadata": {"tenant": "acme"}})
+    assert filtered.ok is True
+    assert filtered.draft is False
+    assert filtered.data["sources"] == 2
+    assert filtered.data["executed"] is False
+    filtered_by_key = {item["key"]: item for item in filtered.data["facets"]}
+    assert filtered_by_key["tenant"]["values"] == [
+        {"value": "acme", "source_ids": ["policy-a", "handbook-1"], "sources": 2},
+    ]
+    assert filtered_by_key["kind"]["values"] == [
+        {"value": "policy", "source_ids": ["policy-a"], "sources": 1},
+        {"value": "handbook", "source_ids": ["handbook-1"], "sources": 1},
+    ]
+    assert "text" not in filtered.data
+
+    no_ingester = MCPServer(retriever=Retriever(ingester)).call("metadata_facets")
+    assert no_ingester.ok is False
+    assert no_ingester.draft is False
+    assert "ingester" in no_ingester.data["error"]
+
+    bad = server.call("metadata_facets", {"metadata": {"tenant": 1}})
+    assert bad.ok is False
+    assert bad.draft is False
+    assert "metadata" in bad.data["error"]
+
+    extra = server.call("metadata_facets", {"metadata": {"tenant": "acme"}, "execute": True})
+    assert extra.ok is False
+    assert extra.draft is False
+    assert "metadata" in extra.data["error"]
+
+    advertised = server.call("describe_tool", {"name": "metadata_facets"})
+    assert advertised.ok is True
+    assert advertised.data["mutates"] is False
+    assert advertised.data["executed"] is False
+
+    assert executed == []
+    assert server.executed == []
+    assert server.drafts() == ()
+    assert [document.source_id for document in ingester.documents] == before
+    assert list(ingester.chunks) == stored
