@@ -144,6 +144,11 @@ class MCPServer:
                 mutates=False,
             ),
             ToolSpec(
+                "duplicate_sources",
+                "List sources that share identical text. Does not return source text.",
+                mutates=False,
+            ),
+            ToolSpec(
                 "list_drafts",
                 "List recorded action drafts, optionally by status. Does not execute them.",
                 mutates=False,
@@ -222,6 +227,8 @@ class MCPServer:
             return self._shared_tokens(args)
         if name == "metadata_facets":
             return self._metadata_facets(args)
+        if name == "duplicate_sources":
+            return self._duplicate_sources(args)
         if name == "list_drafts":
             return self._list_drafts(args)
         if name == "get_draft":
@@ -1334,6 +1341,54 @@ class MCPServer:
             data={
                 "sources": len(documents),
                 "facets": facets,
+                "executed": False,
+            },
+        )
+
+    def _duplicate_sources(self, args: dict[str, Any]) -> ToolResult:
+        extra = set(args) - {"metadata"}
+        if extra:
+            return ToolResult(
+                name="duplicate_sources",
+                ok=False,
+                data={"error": "duplicate_sources only accepts metadata"},
+            )
+        metadata = args.get("metadata")
+        metadata_error = _metadata_error(metadata)
+        if metadata_error is not None:
+            return ToolResult(name="duplicate_sources", ok=False, data={"error": metadata_error})
+        if self._ingester is None:
+            return ToolResult(
+                name="duplicate_sources",
+                ok=False,
+                data={"error": "no ingester configured"},
+            )
+        try:
+            documents = self._ingester.find(metadata=metadata)
+        except (TypeError, ValueError) as exc:
+            return ToolResult(name="duplicate_sources", ok=False, data={"error": str(exc)})
+        groups: dict[str, list[str]] = {}
+        order: list[str] = []
+        for document in documents:
+            if document.text not in groups:
+                groups[document.text] = []
+                order.append(document.text)
+            groups[document.text].append(document.source_id)
+        duplicates = [
+            {
+                "source_ids": groups[body],
+                "sources": len(groups[body]),
+                "chars": len(body),
+            }
+            for body in order
+            if len(groups[body]) >= 2
+        ]
+        return ToolResult(
+            name="duplicate_sources",
+            ok=True,
+            data={
+                "sources": len(documents),
+                "duplicates": duplicates,
                 "executed": False,
             },
         )
