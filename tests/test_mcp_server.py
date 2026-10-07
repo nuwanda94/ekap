@@ -1254,7 +1254,7 @@ def test_duplicate_sources_groups_identical_text_without_returning_it() -> None:
     result = server.call("duplicate_sources")
     assert result.ok is True
     assert result.draft is False
-    assert result.data["sources"] == 5
+    assert result.data["sources"] == 6
     assert result.data["executed"] is False
     assert result.data["duplicates"] == [
         {"source_ids": ["policy-a", "policy-copy"], "sources": 2, "chars": len(POLICY)},
@@ -1707,7 +1707,7 @@ def test_collapse_sources_groups_whitespace_variants_without_returning_text() ->
     result = server.call("collapse_sources")
     assert result.ok is True
     assert result.draft is False
-    assert result.data["sources"] == 5
+    assert result.data["sources"] == 6
     assert result.data["executed"] is False
     assert result.data["groups"] == [
         {
