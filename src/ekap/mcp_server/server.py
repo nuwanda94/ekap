@@ -1741,7 +1741,11 @@ class MCPServer:
                     "collapsed": any(
                         _collapse_ws(document.text) != document.text for document in members
                     ),
-                    "folded": any(document.text.casefold() != document.text for document in members),
+                    "folded": any(
+                        _collapse_ws(document.text).casefold() == _collapse_ws(first).casefold()
+                        and _collapse_ws(document.text) != _collapse_ws(first)
+                        for document in members
+                    ),
                 }
             )
         return ToolResult(
