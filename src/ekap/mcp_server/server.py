@@ -149,6 +149,11 @@ class MCPServer:
                 mutates=False,
             ),
             ToolSpec(
+                "missing_metadata",
+                "List sources missing a metadata key. Does not return source text.",
+                mutates=False,
+            ),
+            ToolSpec(
                 "list_drafts",
                 "List recorded action drafts, optionally by status. Does not execute them.",
                 mutates=False,
@@ -229,6 +234,8 @@ class MCPServer:
             return self._metadata_facets(args)
         if name == "duplicate_sources":
             return self._duplicate_sources(args)
+        if name == "missing_metadata":
+            return self._missing_metadata(args)
         if name == "list_drafts":
             return self._list_drafts(args)
         if name == "get_draft":
@@ -1389,6 +1396,56 @@ class MCPServer:
             data={
                 "sources": len(documents),
                 "duplicates": duplicates,
+                "executed": False,
+            },
+        )
+
+    def _missing_metadata(self, args: dict[str, Any]) -> ToolResult:
+        extra = set(args) - {"key", "metadata"}
+        if extra:
+            return ToolResult(
+                name="missing_metadata",
+                ok=False,
+                data={"error": "missing_metadata only accepts key and metadata"},
+            )
+        key = args.get("key", "")
+        if not isinstance(key, str) or not key.strip():
+            return ToolResult(
+                name="missing_metadata",
+                ok=False,
+                data={"error": "key is required"},
+            )
+        metadata = args.get("metadata")
+        metadata_error = _metadata_error(metadata)
+        if metadata_error is not None:
+            return ToolResult(name="missing_metadata", ok=False, data={"error": metadata_error})
+        if self._ingester is None:
+            return ToolResult(
+                name="missing_metadata",
+                ok=False,
+                data={"error": "no ingester configured"},
+            )
+        try:
+            documents = self._ingester.find(metadata=metadata)
+        except (TypeError, ValueError) as exc:
+            return ToolResult(name="missing_metadata", ok=False, data={"error": str(exc)})
+        cleaned = key.strip()
+        missing = [
+            {
+                "source_id": document.source_id,
+                "metadata": dict(document.metadata),
+                "chars": len(document.text),
+            }
+            for document in documents
+            if cleaned not in document.metadata
+        ]
+        return ToolResult(
+            name="missing_metadata",
+            ok=True,
+            data={
+                "key": cleaned,
+                "sources": len(documents),
+                "missing": missing,
                 "executed": False,
             },
         )
