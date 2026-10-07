@@ -200,6 +200,11 @@ class MCPServer:
                 mutates=False,
             ),
             ToolSpec(
+                "replacement_sources",
+                "List sources containing the Unicode replacement character. Does not return text.",
+                mutates=False,
+            ),
+            ToolSpec(
                 "list_drafts",
                 "List recorded action drafts, optionally by status. Does not execute them.",
                 mutates=False,
@@ -300,6 +305,8 @@ class MCPServer:
             return self._blank_sources(args)
         if name == "control_sources":
             return self._control_sources(args)
+        if name == "replacement_sources":
+            return self._replacement_sources(args)
         if name == "list_drafts":
             return self._list_drafts(args)
         if name == "get_draft":
@@ -2017,6 +2024,51 @@ class MCPServer:
             )
         return ToolResult(
             name="control_sources",
+            ok=True,
+            data={
+                "sources": len(documents),
+                "flagged": flagged,
+                "executed": False,
+            },
+        )
+
+    def _replacement_sources(self, args: dict[str, Any]) -> ToolResult:
+        extra = set(args) - {"metadata"}
+        if extra:
+            return ToolResult(
+                name="replacement_sources",
+                ok=False,
+                data={"error": "replacement_sources only accepts metadata"},
+            )
+        metadata = args.get("metadata")
+        metadata_error = _metadata_error(metadata)
+        if metadata_error is not None:
+            return ToolResult(name="replacement_sources", ok=False, data={"error": metadata_error})
+        if self._ingester is None:
+            return ToolResult(
+                name="replacement_sources",
+                ok=False,
+                data={"error": "no ingester configured"},
+            )
+        try:
+            documents = self._ingester.find(metadata=metadata)
+        except (TypeError, ValueError) as exc:
+            return ToolResult(name="replacement_sources", ok=False, data={"error": str(exc)})
+        flagged = []
+        for document in documents:
+            replacements = document.text.count("\ufffd")
+            if replacements == 0:
+                continue
+            flagged.append(
+                {
+                    "source_id": document.source_id,
+                    "metadata": dict(document.metadata),
+                    "chars": len(document.text),
+                    "replacements": replacements,
+                }
+            )
+        return ToolResult(
+            name="replacement_sources",
             ok=True,
             data={
                 "sources": len(documents),

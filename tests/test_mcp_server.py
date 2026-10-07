@@ -61,6 +61,7 @@ def test_health_is_callable() -> None:
     assert "accentfold_sources" in result.data["tools"]
     assert "blank_sources" in result.data["tools"]
     assert "control_sources" in result.data["tools"]
+    assert "replacement_sources" in result.data["tools"]
     assert "list_drafts" in result.data["tools"]
     assert "get_draft" in result.data["tools"]
     assert "cancel_draft" in result.data["tools"]
@@ -2357,6 +2358,90 @@ def test_control_sources_lists_hidden_characters_without_returning_text() -> Non
     assert "only accepts metadata" in extra.data["error"]
 
     advertised = server.call("describe_tool", {"name": "control_sources"})
+    assert advertised.ok is True
+    assert advertised.data["mutates"] is False
+    assert advertised.data["executed"] is False
+
+    assert executed == []
+    assert server.executed == []
+    assert server.drafts() == ()
+    assert [document.source_id for document in ingester.documents] == before
+    assert list(ingester.chunks) == stored
+
+def test_replacement_sources_lists_replacement_characters_without_returning_text() -> None:
+    ingester = Ingester()
+    executed: list[dict[str, str]] = []
+    server = MCPServer(
+        retriever=Retriever(ingester),
+        executor=executed.append,
+        ingester=ingester,
+    )
+
+    empty = server.call("replacement_sources")
+    assert empty.ok is True
+    assert empty.draft is False
+    assert empty.data == {"sources": 0, "flagged": [], "executed": False}
+
+    broken = "Policy \ufffd approved \ufffd"
+    question = "Travel portal?"
+    once = "Alert \ufffd now"
+    ingester.add("policy-a", POLICY, metadata={"tenant": "acme", "kind": "policy"})
+    ingester.add("broken-a", broken, metadata={"tenant": "beta", "kind": "note"})
+    ingester.add("plain-q", question, metadata={"tenant": "acme", "kind": "note"})
+    ingester.add("broken-b", once, metadata={"tenant": "acme", "kind": "note"})
+    before = [document.source_id for document in ingester.documents]
+    stored = list(ingester.chunks)
+
+    result = server.call("replacement_sources")
+    assert result.ok is True
+    assert result.draft is False
+    assert result.data["sources"] == 4
+    assert result.data["executed"] is False
+    assert result.data["flagged"] == [
+        {
+            "source_id": "broken-a",
+            "metadata": {"tenant": "beta", "kind": "note"},
+            "chars": len(broken),
+            "replacements": 2,
+        },
+        {
+            "source_id": "broken-b",
+            "metadata": {"tenant": "acme", "kind": "note"},
+            "chars": len(once),
+            "replacements": 1,
+        },
+    ]
+    assert "text" not in result.data
+    assert all("text" not in item for item in result.data["flagged"])
+    returned = result.data["flagged"][0]["metadata"]
+    returned["tenant"] = "mutated"
+    assert ingester.documents[1].metadata["tenant"] == "beta"
+
+    filtered = server.call("replacement_sources", {"metadata": {"tenant": "beta"}})
+    assert filtered.ok is True
+    assert filtered.draft is False
+    assert [item["source_id"] for item in filtered.data["flagged"]] == ["broken-a"]
+
+    notes = server.call("replacement_sources", {"metadata": {"tenant": "acme", "kind": "note"}})
+    assert notes.ok is True
+    assert [item["source_id"] for item in notes.data["flagged"]] == ["broken-b"]
+
+    no_ingester = MCPServer(retriever=Retriever(ingester)).call("replacement_sources")
+    assert no_ingester.ok is False
+    assert no_ingester.draft is False
+    assert no_ingester.data["error"] == "no ingester configured"
+
+    bad = server.call("replacement_sources", {"metadata": {"tenant": 1}})
+    assert bad.ok is False
+    assert bad.draft is False
+    assert "metadata" in bad.data["error"]
+
+    extra = server.call("replacement_sources", {"metadata": {"tenant": "acme"}, "execute": True})
+    assert extra.ok is False
+    assert extra.draft is False
+    assert "only accepts metadata" in extra.data["error"]
+
+    advertised = server.call("describe_tool", {"name": "replacement_sources"})
     assert advertised.ok is True
     assert advertised.data["mutates"] is False
     assert advertised.data["executed"] is False
