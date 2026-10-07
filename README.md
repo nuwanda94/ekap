@@ -143,6 +143,7 @@ RAG core, an in-process MCP server (`health`, `search_docs`, `list_sources`, `ge
 `token_stats` returns occurrence and unique alphanumeric token counts for one known source, plus the most frequent tokens, and does not return source text; a missing ingester, blank id, unknown source, invalid limit, or extra argument fails closed, and the tool never changes the corpus or calls the executor.
 `query_coverage` returns source ids for each alphanumeric query token, plus sources that contain every token, optionally limited by metadata, and does not return source text; a missing ingester, blank query, query with no token, invalid metadata map, or extra argument fails closed, and the tool never changes the corpus or calls the executor.
 `query_gaps` returns query tokens that no matching source covers, plus the tokens each source is missing, optionally limited by metadata, and does not return source text; a missing ingester, blank query, query with no token, invalid metadata map, or extra argument fails closed, and the tool never changes the corpus or calls the executor.
+`exclusive_tokens` returns alphanumeric tokens that appear in exactly one matching source, in first-seen order, optionally limited by metadata, and does not return source text; a missing ingester, invalid metadata map, or extra argument fails closed, and the tool never changes the corpus or calls the executor.
 
 ---
 

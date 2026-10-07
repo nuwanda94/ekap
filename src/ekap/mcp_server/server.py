@@ -129,6 +129,11 @@ class MCPServer:
                 mutates=False,
             ),
             ToolSpec(
+                "exclusive_tokens",
+                "List tokens unique to one matching source. Does not return source text.",
+                mutates=False,
+            ),
+            ToolSpec(
                 "list_drafts",
                 "List recorded action drafts, optionally by status. Does not execute them.",
                 mutates=False,
@@ -201,6 +206,8 @@ class MCPServer:
             return self._query_coverage(args)
         if name == "query_gaps":
             return self._query_gaps(args)
+        if name == "exclusive_tokens":
+            return self._exclusive_tokens(args)
         if name == "list_drafts":
             return self._list_drafts(args)
         if name == "get_draft":
@@ -1157,6 +1164,52 @@ class MCPServer:
                 "tokens": tokens,
                 "missing": missing,
                 "partial": partial,
+                "executed": False,
+            },
+        )
+
+
+    def _exclusive_tokens(self, args: dict[str, Any]) -> ToolResult:
+        extra = set(args) - {"metadata"}
+        if extra:
+            return ToolResult(
+                name="exclusive_tokens",
+                ok=False,
+                data={"error": "exclusive_tokens only accepts metadata"},
+            )
+        metadata = args.get("metadata")
+        metadata_error = _metadata_error(metadata)
+        if metadata_error is not None:
+            return ToolResult(name="exclusive_tokens", ok=False, data={"error": metadata_error})
+        if self._ingester is None:
+            return ToolResult(
+                name="exclusive_tokens",
+                ok=False,
+                data={"error": "no ingester configured"},
+            )
+        try:
+            documents = self._ingester.find(metadata=metadata)
+        except (TypeError, ValueError) as exc:
+            return ToolResult(name="exclusive_tokens", ok=False, data={"error": str(exc)})
+        ordered = [(document.source_id, _query_tokens(document.text)) for document in documents]
+        counts: dict[str, int] = {}
+        for _, tokens in ordered:
+            for token in set(tokens):
+                counts[token] = counts.get(token, 0) + 1
+        exclusive = [
+            {
+                "source_id": source_id,
+                "tokens": [token for token in tokens if counts[token] == 1],
+            }
+            for source_id, tokens in ordered
+            if any(counts[token] == 1 for token in tokens)
+        ]
+        return ToolResult(
+            name="exclusive_tokens",
+            ok=True,
+            data={
+                "sources": len(documents),
+                "exclusive": exclusive,
                 "executed": False,
             },
         )

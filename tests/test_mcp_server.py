@@ -51,6 +51,7 @@ def test_health_is_callable() -> None:
     assert "token_stats" in result.data["tools"]
     assert "query_coverage" in result.data["tools"]
     assert "query_gaps" in result.data["tools"]
+    assert "exclusive_tokens" in result.data["tools"]
     assert "list_drafts" in result.data["tools"]
     assert "get_draft" in result.data["tools"]
     assert "cancel_draft" in result.data["tools"]
@@ -968,6 +969,77 @@ def test_query_gaps_lists_uncovered_tokens_without_returning_text() -> None:
     assert "query" in extra.data["error"]
 
     advertised = server.call("describe_tool", {"name": "query_gaps"})
+    assert advertised.ok is True
+    assert advertised.data["mutates"] is False
+    assert advertised.data["executed"] is False
+
+    assert executed == []
+    assert server.executed == []
+    assert server.drafts() == ()
+    assert [document.source_id for document in ingester.documents] == before
+    assert list(ingester.chunks) == stored
+
+
+def test_exclusive_tokens_lists_unique_tokens_without_returning_text() -> None:
+    ingester = Ingester()
+    executed: list[dict[str, str]] = []
+    server = MCPServer(
+        retriever=Retriever(ingester),
+        executor=executed.append,
+        ingester=ingester,
+    )
+
+    empty = server.call("exclusive_tokens")
+    assert empty.ok is True
+    assert empty.draft is False
+    assert empty.data == {"sources": 0, "exclusive": [], "executed": False}
+
+    ingester.add("policy-a", POLICY, metadata={"tenant": "acme", "kind": "policy"})
+    ingester.add("policy-b", BETA_POLICY, metadata={"tenant": "beta", "kind": "policy"})
+    ingester.add("handbook-1", HANDBOOK, metadata={"tenant": "acme", "kind": "handbook"})
+    before = [document.source_id for document in ingester.documents]
+    stored = list(ingester.chunks)
+
+    result = server.call("exclusive_tokens")
+    assert result.ok is True
+    assert result.draft is False
+    assert result.data["sources"] == 3
+    assert result.data["executed"] is False
+    by_source = {item["source_id"]: item["tokens"] for item in result.data["exclusive"]}
+    assert "manager" in by_source["policy-a"]
+    assert "director" in by_source["policy-b"]
+    assert "beta" in by_source["policy-b"]
+    assert "vacation" in by_source["handbook-1"]
+    assert "portal" not in by_source["policy-a"]
+    assert "approval" not in by_source["policy-a"]
+    assert "text" not in result.data
+    assert all("text" not in item for item in result.data["exclusive"])
+
+    filtered = server.call("exclusive_tokens", {"metadata": {"tenant": "acme"}})
+    assert filtered.ok is True
+    assert filtered.draft is False
+    assert filtered.data["sources"] == 2
+    filtered_tokens = {item["source_id"]: item["tokens"] for item in filtered.data["exclusive"]}
+    assert "portal" in filtered_tokens["policy-a"]
+    assert "vacation" in filtered_tokens["handbook-1"]
+    assert "director" not in {token for tokens in filtered_tokens.values() for token in tokens}
+
+    no_ingester = MCPServer(retriever=Retriever(ingester)).call("exclusive_tokens")
+    assert no_ingester.ok is False
+    assert no_ingester.draft is False
+    assert "ingester" in no_ingester.data["error"]
+
+    bad = server.call("exclusive_tokens", {"metadata": {"tenant": 1}})
+    assert bad.ok is False
+    assert bad.draft is False
+    assert "metadata" in bad.data["error"]
+
+    extra = server.call("exclusive_tokens", {"metadata": {"tenant": "acme"}, "execute": True})
+    assert extra.ok is False
+    assert extra.draft is False
+    assert "metadata" in extra.data["error"]
+
+    advertised = server.call("describe_tool", {"name": "exclusive_tokens"})
     assert advertised.ok is True
     assert advertised.data["mutates"] is False
     assert advertised.data["executed"] is False
