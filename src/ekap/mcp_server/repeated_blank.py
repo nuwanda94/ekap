@@ -37,8 +37,7 @@ def repeated_blank_counts(text: str) -> tuple[int, int, int]:
             current += 1
             if current == 2:
                 repeated_runs += 1
-            if current > max_run:
-                max_run = current
+            max_run = max(max_run, current)
             return
         current = 0
 
