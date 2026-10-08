@@ -8,14 +8,15 @@ from ekap.mcp_server.leading_space import leading_space_sources, leading_space_s
 from ekap.mcp_server.repeated_blank import repeated_blank_sources, repeated_blank_spec
 from ekap.mcp_server.server import MCPServer as _MCPServer
 from ekap.mcp_server.server import ToolResult, ToolSpec
+from ekap.mcp_server.trailing_blank import trailing_blank_sources, trailing_blank_spec
 
 
 class MCPServer(_MCPServer):
-    """Server that also lists leading whitespace and repeated blank lines."""
+    """Server that also lists leading whitespace, repeated blanks, and trailing blanks."""
 
     def list_tools(self) -> tuple[ToolSpec, ...]:
         tools = super().list_tools()
-        extra = (leading_space_spec(), repeated_blank_spec())
+        extra = (leading_space_spec(), repeated_blank_spec(), trailing_blank_spec())
         names = {tool.name for tool in tools}
         return (*tools, *(spec for spec in extra if spec.name not in names))
 
@@ -25,6 +26,8 @@ class MCPServer(_MCPServer):
             return leading_space_sources(self, args)
         if name == "repeated_blank_sources":
             return repeated_blank_sources(self, args)
+        if name == "trailing_blank_sources":
+            return trailing_blank_sources(self, args)
         return super().call(name, arguments)
 
 
