@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from ekap.mcp_server.bom import bom_sources, bom_spec
 from ekap.mcp_server.leading_blank import leading_blank_sources, leading_blank_spec
 from ekap.mcp_server.leading_space import leading_space_sources, leading_space_spec
 from ekap.mcp_server.mixed_indent import mixed_indent_sources, mixed_indent_spec
@@ -21,6 +22,7 @@ class MCPServer(_MCPServer):
     def list_tools(self) -> tuple[ToolSpec, ...]:
         tools = super().list_tools()
         extra = (
+            bom_spec(),
             leading_blank_spec(),
             leading_space_spec(),
             mixed_indent_spec(),
@@ -34,6 +36,8 @@ class MCPServer(_MCPServer):
 
     def call(self, name: str, arguments: dict[str, Any] | None = None) -> ToolResult:
         args = dict(arguments or {})
+        if name == "bom_sources":
+            return bom_sources(self, args)
         if name == "leading_blank_sources":
             return leading_blank_sources(self, args)
         if name == "leading_space_sources":
