@@ -1,7 +1,16 @@
 """Unit tests for trailing blank-line source listing."""
 
 from ekap.mcp_server import MCPServer
+from ekap.mcp_server.trailing_blank import trailing_blank_counts
 from ekap.rag import Ingester, Retriever
+
+
+def test_trailing_blank_counts_blank_only_and_interior() -> None:
+    assert trailing_blank_counts("\n\t\n") == (2, 0)
+    assert trailing_blank_counts("Vacation rolls over\n\nup to 10 days.\n") == (0, 2)
+    assert trailing_blank_counts("Keep this line") == (0, 1)
+    assert trailing_blank_counts("Page one\n\n") == (1, 1)
+    assert trailing_blank_counts("Alpha\r\n \r\n") == (1, 1)
 
 
 def test_trailing_blank_sources_lists_ending_blanks_without_returning_text() -> None:
@@ -22,14 +31,14 @@ def test_trailing_blank_sources_lists_ending_blanks_without_returning_text() -> 
     interior = "Vacation rolls over\n\nup to 10 days.\n"
     one_blank = "Page one\n\n"
     spaced = "Alpha\r\n \r\n"
-    blank_only = "\n\t\n"
+    two_blank = "Page two\n\n\n"
     unterminated = "Keep this line"
     ingester.add("clean-a", clean, metadata={"tenant": "acme", "kind": "policy"})
     ingester.add("inner-a", interior, metadata={"tenant": "beta", "kind": "note"})
     ingester.add("plain-b", "No breaks here.", metadata={"tenant": "acme", "kind": "note"})
     ingester.add("trail-a", one_blank, metadata={"tenant": "acme", "kind": "note"})
     ingester.add("space-a", spaced, metadata={"tenant": "acme", "kind": "policy"})
-    ingester.add("blank-a", blank_only, metadata={"tenant": "acme", "kind": "policy"})
+    ingester.add("trail-b", two_blank, metadata={"tenant": "acme", "kind": "policy"})
     ingester.add("open-a", unterminated, metadata={"tenant": "acme", "kind": "policy"})
     before = [document.source_id for document in ingester.documents]
     stored = list(ingester.chunks)
@@ -57,12 +66,12 @@ def test_trailing_blank_sources_lists_ending_blanks_without_returning_text() -> 
             "blank_only": False,
         },
         {
-            "source_id": "blank-a",
+            "source_id": "trail-b",
             "metadata": {"tenant": "acme", "kind": "policy"},
-            "chars": len(blank_only),
+            "chars": len(two_blank),
             "trailing_blank_lines": 2,
-            "content_lines": 0,
-            "blank_only": True,
+            "content_lines": 1,
+            "blank_only": False,
         },
     ]
     assert "text" not in result.data
@@ -81,7 +90,7 @@ def test_trailing_blank_sources_lists_ending_blanks_without_returning_text() -> 
         {"metadata": {"tenant": "acme", "kind": "policy"}},
     )
     assert policies.ok is True
-    assert [item["source_id"] for item in policies.data["flagged"]] == ["space-a", "blank-a"]
+    assert [item["source_id"] for item in policies.data["flagged"]] == ["space-a", "trail-b"]
 
     no_ingester = MCPServer(retriever=Retriever(ingester)).call("trailing_blank_sources")
     assert no_ingester.ok is False
