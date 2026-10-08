@@ -7,6 +7,7 @@ from typing import Any
 from ekap.mcp_server.bom import bom_sources, bom_spec
 from ekap.mcp_server.leading_blank import leading_blank_sources, leading_blank_spec
 from ekap.mcp_server.leading_space import leading_space_sources, leading_space_spec
+from ekap.mcp_server.long_line import long_line_sources, long_line_spec
 from ekap.mcp_server.mixed_indent import mixed_indent_sources, mixed_indent_spec
 from ekap.mcp_server.repeated_blank import repeated_blank_sources, repeated_blank_spec
 from ekap.mcp_server.server import MCPServer as _MCPServer
@@ -25,6 +26,7 @@ class MCPServer(_MCPServer):
             bom_spec(),
             leading_blank_spec(),
             leading_space_spec(),
+            long_line_spec(),
             mixed_indent_spec(),
             repeated_blank_spec(),
             trailing_blank_spec(),
@@ -40,6 +42,8 @@ class MCPServer(_MCPServer):
             return bom_sources(self, args)
         if name == "leading_blank_sources":
             return leading_blank_sources(self, args)
+        if name == "long_line_sources":
+            return long_line_sources(self, args)
         if name == "leading_space_sources":
             return leading_space_sources(self, args)
         if name == "mixed_indent_sources":
