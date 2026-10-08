@@ -19,6 +19,7 @@ from ekap.mcp_server.tab import tab_sources, tab_spec
 from ekap.mcp_server.trailing_blank import trailing_blank_sources, trailing_blank_spec
 from ekap.mcp_server.trailing_space import trailing_space_sources, trailing_space_spec
 from ekap.mcp_server.unterminated import unterminated_sources, unterminated_spec
+from ekap.mcp_server.vertical_tab import vertical_tab_sources, vertical_tab_spec
 
 
 class MCPServer(_MCPServer):
@@ -40,6 +41,7 @@ class MCPServer(_MCPServer):
             trailing_blank_spec(),
             trailing_space_spec(),
             unterminated_spec(),
+            vertical_tab_spec(),
         )
         names = {tool.name for tool in tools}
         return (*tools, *(spec for spec in extra if spec.name not in names))
@@ -72,6 +74,8 @@ class MCPServer(_MCPServer):
             return trailing_space_sources(self, args)
         if name == "unterminated_sources":
             return unterminated_sources(self, args)
+        if name == "vertical_tab_sources":
+            return vertical_tab_sources(self, args)
         return super().call(name, arguments)
 
 
