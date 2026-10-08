@@ -210,6 +210,11 @@ class MCPServer:
                 mutates=False,
             ),
             ToolSpec(
+                "trailing_space_sources",
+                "List sources whose lines end in spaces or tabs. Does not return text.",
+                mutates=False,
+            ),
+            ToolSpec(
                 "list_drafts",
                 "List recorded action drafts, optionally by status. Does not execute them.",
                 mutates=False,
@@ -314,6 +319,8 @@ class MCPServer:
             return self._replacement_sources(args)
         if name == "line_ending_sources":
             return self._line_ending_sources(args)
+        if name == "trailing_space_sources":
+            return self._trailing_space_sources(args)
         if name == "list_drafts":
             return self._list_drafts(args)
         if name == "get_draft":
@@ -2133,6 +2140,57 @@ class MCPServer:
             },
         )
 
+    def _trailing_space_sources(self, args: dict[str, Any]) -> ToolResult:
+        extra = set(args) - {"metadata"}
+        if extra:
+            return ToolResult(
+                name="trailing_space_sources",
+                ok=False,
+                data={"error": "trailing_space_sources only accepts metadata"},
+            )
+        metadata = args.get("metadata")
+        metadata_error = _metadata_error(metadata)
+        if metadata_error is not None:
+            return ToolResult(
+                name="trailing_space_sources",
+                ok=False,
+                data={"error": metadata_error},
+            )
+        if self._ingester is None:
+            return ToolResult(
+                name="trailing_space_sources",
+                ok=False,
+                data={"error": "no ingester configured"},
+            )
+        try:
+            documents = self._ingester.find(metadata=metadata)
+        except (TypeError, ValueError) as exc:
+            return ToolResult(name="trailing_space_sources", ok=False, data={"error": str(exc)})
+        flagged = []
+        for document in documents:
+            space_lines, tab_lines = _trailing_space_counts(document.text)
+            if space_lines == 0 and tab_lines == 0:
+                continue
+            flagged.append(
+                {
+                    "source_id": document.source_id,
+                    "metadata": dict(document.metadata),
+                    "chars": len(document.text),
+                    "space_lines": space_lines,
+                    "tab_lines": tab_lines,
+                    "mixed": space_lines > 0 and tab_lines > 0,
+                }
+            )
+        return ToolResult(
+            name="trailing_space_sources",
+            ok=True,
+            data={
+                "sources": len(documents),
+                "flagged": flagged,
+                "executed": False,
+            },
+        )
+
     def _record_draft(self, action: str, target: str) -> _ActionDraft:
         draft = _ActionDraft(
             draft_id=f"draft-{len(self._drafts) + 1}",
@@ -2153,6 +2211,51 @@ def _line_ending_counts(text: str) -> tuple[int, int, int]:
     bare_cr = text.count("\r") - crlf
     lf = text.count("\n") - crlf
     return lf, crlf, bare_cr
+
+
+def _trailing_space_counts(text: str) -> tuple[int, int]:
+    """Count lines ending in ASCII spaces and lines ending in tabs.
+
+    CRLF and bare CR are line boundaries. A line whose trailing run contains both
+    counts in both totals. The segment after a final terminator is not a line.
+    """
+    space_lines = 0
+    tab_lines = 0
+
+    def consider(line: str) -> None:
+        nonlocal space_lines, tab_lines
+        saw_space = False
+        saw_tab = False
+        index = len(line)
+        while index > 0 and line[index - 1] in " \t":
+            if line[index - 1] == " ":
+                saw_space = True
+            else:
+                saw_tab = True
+            index -= 1
+        if saw_space:
+            space_lines += 1
+        if saw_tab:
+            tab_lines += 1
+
+    start = 0
+    index = 0
+    length = len(text)
+    while index < length:
+        if text[index] == "\r":
+            consider(text[start:index])
+            index += 2 if index + 1 < length and text[index + 1] == "\n" else 1
+            start = index
+            continue
+        if text[index] == "\n":
+            consider(text[start:index])
+            index += 1
+            start = index
+            continue
+        index += 1
+    if start < length:
+        consider(text[start:])
+    return space_lines, tab_lines
 
 
 def _collapse_ws(text: str) -> str:

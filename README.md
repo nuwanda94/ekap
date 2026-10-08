@@ -161,6 +161,8 @@ RAG core, an in-process MCP server (`health`, `search_docs`, `list_sources`, `ge
 
 `line_ending_sources` lists matching sources that contain a carriage return, either bare or inside CRLF, in insertion order, and returns source id, a metadata copy, character count, LF count, CRLF count, bare CR count, and whether more than one ending style is present, without source text. LF-only text is not a match. A missing ingester, invalid metadata map, or extra argument fails closed, and the tool never changes the corpus or calls the executor.
 
+`trailing_space_sources` lists matching sources whose lines end in ASCII spaces or tabs, in insertion order, and returns source id, a metadata copy, character count, trailing-space line count, trailing-tab line count, and whether both styles are present, without source text. Interior spaces and lines with no trailing space or tab are not a match. A missing ingester, invalid metadata map, or extra argument fails closed, and the tool never changes the corpus or calls the executor.
+
 ---
 
 *Built as a principal-staff reference implementation of a safe, evaluable, human-supervised agent platform.*
