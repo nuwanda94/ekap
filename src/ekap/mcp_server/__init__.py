@@ -10,6 +10,7 @@ from ekap.mcp_server.repeated_blank import repeated_blank_sources, repeated_blan
 from ekap.mcp_server.server import MCPServer as _MCPServer
 from ekap.mcp_server.server import ToolResult, ToolSpec
 from ekap.mcp_server.trailing_blank import trailing_blank_sources, trailing_blank_spec
+from ekap.mcp_server.trailing_space import trailing_space_sources, trailing_space_spec
 from ekap.mcp_server.unterminated import unterminated_sources, unterminated_spec
 
 
@@ -23,6 +24,7 @@ class MCPServer(_MCPServer):
             leading_space_spec(),
             repeated_blank_spec(),
             trailing_blank_spec(),
+            trailing_space_spec(),
             unterminated_spec(),
         )
         names = {tool.name for tool in tools}
@@ -38,6 +40,8 @@ class MCPServer(_MCPServer):
             return repeated_blank_sources(self, args)
         if name == "trailing_blank_sources":
             return trailing_blank_sources(self, args)
+        if name == "trailing_space_sources":
+            return trailing_space_sources(self, args)
         if name == "unterminated_sources":
             return unterminated_sources(self, args)
         return super().call(name, arguments)
