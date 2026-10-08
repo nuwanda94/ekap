@@ -14,6 +14,7 @@ from ekap.mcp_server.nbsp import nbsp_sources, nbsp_spec
 from ekap.mcp_server.repeated_blank import repeated_blank_sources, repeated_blank_spec
 from ekap.mcp_server.server import MCPServer as _MCPServer
 from ekap.mcp_server.server import ToolResult, ToolSpec
+from ekap.mcp_server.tab import tab_sources, tab_spec
 from ekap.mcp_server.trailing_blank import trailing_blank_sources, trailing_blank_spec
 from ekap.mcp_server.trailing_space import trailing_space_sources, trailing_space_spec
 from ekap.mcp_server.unterminated import unterminated_sources, unterminated_spec
@@ -33,6 +34,7 @@ class MCPServer(_MCPServer):
             mixed_indent_spec(),
             nbsp_spec(),
             repeated_blank_spec(),
+            tab_spec(),
             trailing_blank_spec(),
             trailing_space_spec(),
             unterminated_spec(),
@@ -58,6 +60,8 @@ class MCPServer(_MCPServer):
             return nbsp_sources(self, args)
         if name == "repeated_blank_sources":
             return repeated_blank_sources(self, args)
+        if name == "tab_sources":
+            return tab_sources(self, args)
         if name == "trailing_blank_sources":
             return trailing_blank_sources(self, args)
         if name == "trailing_space_sources":
