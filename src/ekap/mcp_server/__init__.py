@@ -6,6 +6,7 @@ from typing import Any
 
 from ekap.mcp_server.leading_blank import leading_blank_sources, leading_blank_spec
 from ekap.mcp_server.leading_space import leading_space_sources, leading_space_spec
+from ekap.mcp_server.mixed_indent import mixed_indent_sources, mixed_indent_spec
 from ekap.mcp_server.repeated_blank import repeated_blank_sources, repeated_blank_spec
 from ekap.mcp_server.server import MCPServer as _MCPServer
 from ekap.mcp_server.server import ToolResult, ToolSpec
@@ -22,6 +23,7 @@ class MCPServer(_MCPServer):
         extra = (
             leading_blank_spec(),
             leading_space_spec(),
+            mixed_indent_spec(),
             repeated_blank_spec(),
             trailing_blank_spec(),
             trailing_space_spec(),
@@ -36,6 +38,8 @@ class MCPServer(_MCPServer):
             return leading_blank_sources(self, args)
         if name == "leading_space_sources":
             return leading_space_sources(self, args)
+        if name == "mixed_indent_sources":
+            return mixed_indent_sources(self, args)
         if name == "repeated_blank_sources":
             return repeated_blank_sources(self, args)
         if name == "trailing_blank_sources":
