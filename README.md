@@ -28,6 +28,8 @@ See the previous status history on commit 7829fa4908356c3beb17038948c6bf244d05c6
 
 `nel_sources` lists matching sources that contain U+0085, in insertion order, and returns source id, a metadata copy, character count, next-line count, run count, and whether the source starts or ends with U+0085, without source text. A run is a maximal consecutive sequence of next-line characters. Ordinary whitespace, tabs, vertical tabs, and form feeds are not a match. A missing ingester, invalid metadata map, or extra argument fails closed, and the tool never changes the corpus or calls the executor.
 
+`line_separator_sources` lists matching sources that contain U+2028, in insertion order, and returns source id, a metadata copy, character count, line-separator count, run count, and whether the source starts or ends with U+2028, without source text. A run is a maximal consecutive sequence of line separators. Ordinary whitespace, tabs, vertical tabs, form feeds, and next-line characters are not a match. A missing ingester, invalid metadata map, or extra argument fails closed, and the tool never changes the corpus or calls the executor.
+
 ---
 
 *Built as a principal-staff reference implementation of a safe, evaluable, human-supervised agent platform.*
