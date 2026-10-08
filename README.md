@@ -30,6 +30,8 @@ See the previous status history on commit 7829fa4908356c3beb17038948c6bf244d05c6
 
 `line_separator_sources` lists matching sources that contain U+2028, in insertion order, and returns source id, a metadata copy, character count, line-separator count, run count, and whether the source starts or ends with U+2028, without source text. A run is a maximal consecutive sequence of line separators. Ordinary whitespace, tabs, vertical tabs, form feeds, and next-line characters are not a match. A missing ingester, invalid metadata map, or extra argument fails closed, and the tool never changes the corpus or calls the executor.
 
+`paragraph_separator_sources` lists matching sources that contain U+2029, in insertion order, and returns source id, a metadata copy, character count, paragraph-separator count, run count, and whether the source starts or ends with U+2029, without source text. A run is a maximal consecutive sequence of paragraph separators. Ordinary whitespace, tabs, vertical tabs, form feeds, next-line characters, and line separators are not a match. A missing ingester, invalid metadata map, or extra argument fails closed, and the tool never changes the corpus or calls the executor.
+
 ---
 
 *Built as a principal-staff reference implementation of a safe, evaluable, human-supervised agent platform.*

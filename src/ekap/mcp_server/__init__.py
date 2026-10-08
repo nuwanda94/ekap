@@ -14,6 +14,10 @@ from ekap.mcp_server.long_line import long_line_sources, long_line_spec
 from ekap.mcp_server.mixed_indent import mixed_indent_sources, mixed_indent_spec
 from ekap.mcp_server.nbsp import nbsp_sources, nbsp_spec
 from ekap.mcp_server.nel import nel_sources, nel_spec
+from ekap.mcp_server.paragraph_separator import (
+    paragraph_separator_sources,
+    paragraph_separator_spec,
+)
 from ekap.mcp_server.repeated_blank import repeated_blank_sources, repeated_blank_spec
 from ekap.mcp_server.server import MCPServer as _MCPServer
 from ekap.mcp_server.server import ToolResult, ToolSpec
@@ -40,6 +44,7 @@ class MCPServer(_MCPServer):
             mixed_indent_spec(),
             nbsp_spec(),
             nel_spec(),
+            paragraph_separator_spec(),
             repeated_blank_spec(),
             tab_spec(),
             trailing_blank_spec(),
@@ -72,6 +77,8 @@ class MCPServer(_MCPServer):
             return nbsp_sources(self, args)
         if name == "nel_sources":
             return nel_sources(self, args)
+        if name == "paragraph_separator_sources":
+            return paragraph_separator_sources(self, args)
         if name == "repeated_blank_sources":
             return repeated_blank_sources(self, args)
         if name == "tab_sources":
