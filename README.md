@@ -165,6 +165,8 @@ RAG core, an in-process MCP server (`health`, `search_docs`, `list_sources`, `ge
 
 `trailing_blank_sources` lists matching sources that end with one or more blank lines, in insertion order, and returns source id, a metadata copy, character count, trailing blank-line count, content-line count, and whether the source is blank-only, without source text. A blank line is empty or only ASCII spaces and tabs. The empty segment after a final line terminator is not a line, and an interior blank line is not a match. A missing ingester, invalid metadata map, or extra argument fails closed, and the tool never changes the corpus or calls the executor.
 
+`leading_blank_sources` lists matching sources that start with one or more blank lines, in insertion order, and returns source id, a metadata copy, character count, leading blank-line count, content-line count, and whether the source is blank-only, without source text. A blank line is empty or only ASCII spaces and tabs. The empty segment after a final terminator is not a line, and an interior blank line is not a match. A missing ingester, invalid metadata map, or extra argument fails closed, and the tool never changes the corpus or calls the executor.
+
 ---
 
 *Built as a principal-staff reference implementation of a safe, evaluable, human-supervised agent platform.*
