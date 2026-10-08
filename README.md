@@ -22,6 +22,8 @@ See the previous status history on commit 7829fa4908356c3beb17038948c6bf244d05c6
 
 `tab_sources` lists matching sources that contain U+0009, in insertion order, and returns source id, a metadata copy, character count, tab count, indent-tab line count, and inline tab count, without source text. A line counts as indent-tab only when it starts with a tab; tabs after a non-tab are inline. Ordinary spaces are not a match. A missing ingester, invalid metadata map, or extra argument fails closed, and the tool never changes the corpus or calls the executor.
 
+`form_feed_sources` lists matching sources that contain U+000C, in insertion order, and returns source id, a metadata copy, character count, form-feed count, run count, and whether the source starts or ends with U+000C, without source text. A run is a maximal consecutive sequence of form feeds. Ordinary whitespace is not a match. A missing ingester, invalid metadata map, or extra argument fails closed, and the tool never changes the corpus or calls the executor.
+
 ---
 
 *Built as a principal-staff reference implementation of a safe, evaluable, human-supervised agent platform.*
