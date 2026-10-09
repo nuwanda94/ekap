@@ -19,6 +19,10 @@ from ekap.mcp_server.first_strong_isolate import (
     first_strong_isolate_spec,
 )
 from ekap.mcp_server.form_feed import form_feed_sources, form_feed_spec
+from ekap.mcp_server.inhibit_arabic_form_shaping import (
+    inhibit_arabic_form_shaping_sources,
+    inhibit_arabic_form_shaping_spec,
+)
 from ekap.mcp_server.inhibit_symmetric_swapping import (
     inhibit_symmetric_swapping_sources,
     inhibit_symmetric_swapping_spec,
@@ -109,6 +113,7 @@ class MCPServer(_MCPServer):
             crlf_spec(),
             first_strong_isolate_spec(),
             form_feed_spec(),
+            inhibit_arabic_form_shaping_spec(),
             inhibit_symmetric_swapping_spec(),
             leading_blank_spec(),
             leading_space_spec(),
@@ -156,6 +161,8 @@ class MCPServer(_MCPServer):
             return first_strong_isolate_sources(self, args)
         if name == "form_feed_sources":
             return form_feed_sources(self, args)
+        if name == "inhibit_arabic_form_shaping_sources":
+            return inhibit_arabic_form_shaping_sources(self, args)
         if name == "inhibit_symmetric_swapping_sources":
             return inhibit_symmetric_swapping_sources(self, args)
         if name == "leading_blank_sources":
