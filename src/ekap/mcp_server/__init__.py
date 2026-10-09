@@ -47,6 +47,10 @@ from ekap.mcp_server.right_to_left_embedding import (
     right_to_left_embedding_sources,
     right_to_left_embedding_spec,
 )
+from ekap.mcp_server.right_to_left_isolate import (
+    right_to_left_isolate_sources,
+    right_to_left_isolate_spec,
+)
 from ekap.mcp_server.right_to_left_mark import (
     right_to_left_mark_sources,
     right_to_left_mark_spec,
@@ -102,6 +106,7 @@ class MCPServer(_MCPServer):
             pop_directional_formatting_spec(),
             repeated_blank_spec(),
             right_to_left_embedding_spec(),
+            right_to_left_isolate_spec(),
             right_to_left_mark_spec(),
             right_to_left_override_spec(),
             tab_spec(),
@@ -157,6 +162,8 @@ class MCPServer(_MCPServer):
             return repeated_blank_sources(self, args)
         if name == "right_to_left_embedding_sources":
             return right_to_left_embedding_sources(self, args)
+        if name == "right_to_left_isolate_sources":
+            return right_to_left_isolate_sources(self, args)
         if name == "right_to_left_mark_sources":
             return right_to_left_mark_sources(self, args)
         if name == "right_to_left_override_sources":
