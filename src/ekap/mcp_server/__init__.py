@@ -9,6 +9,10 @@ from ekap.mcp_server.crlf import crlf_sources, crlf_spec
 from ekap.mcp_server.form_feed import form_feed_sources, form_feed_spec
 from ekap.mcp_server.leading_blank import leading_blank_sources, leading_blank_spec
 from ekap.mcp_server.leading_space import leading_space_sources, leading_space_spec
+from ekap.mcp_server.left_to_right_mark import (
+    left_to_right_mark_sources,
+    left_to_right_mark_spec,
+)
 from ekap.mcp_server.line_separator import line_separator_sources, line_separator_spec
 from ekap.mcp_server.long_line import long_line_sources, long_line_spec
 from ekap.mcp_server.mixed_indent import mixed_indent_sources, mixed_indent_spec
@@ -52,6 +56,7 @@ class MCPServer(_MCPServer):
             form_feed_spec(),
             leading_blank_spec(),
             leading_space_spec(),
+            left_to_right_mark_spec(),
             line_separator_spec(),
             long_line_spec(),
             mixed_indent_spec(),
@@ -86,6 +91,8 @@ class MCPServer(_MCPServer):
             return long_line_sources(self, args)
         if name == "leading_space_sources":
             return leading_space_sources(self, args)
+        if name == "left_to_right_mark_sources":
+            return left_to_right_mark_sources(self, args)
         if name == "line_separator_sources":
             return line_separator_sources(self, args)
         if name == "mixed_indent_sources":

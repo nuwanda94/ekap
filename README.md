@@ -40,6 +40,8 @@ See the previous status history on commit 7829fa4908356c3beb17038948c6bf244d05c6
 
 `zero_width_non_joiner_sources` lists matching sources that contain U+200C, in insertion order, and returns source id, a metadata copy, character count, zero-width-non-joiner count, run count, and whether the source starts or ends with U+200C, without source text. A run is a maximal consecutive sequence of zero-width non-joiners. Ordinary whitespace, BOM, zero-width spaces, word joiners, and zero-width joiners are not a match. A missing ingester, invalid metadata map, or extra argument fails closed, and the tool never changes the corpus or calls the executor.
 
+`left_to_right_mark_sources` lists matching sources that contain U+200E, in insertion order, and returns source id, a metadata copy, character count, left-to-right-mark count, run count, and whether the source starts or ends with U+200E, without source text. A run is a maximal consecutive sequence of left-to-right marks. Ordinary whitespace, BOM, zero-width spaces, word joiners, and zero-width joiners or non-joiners are not a match. A missing ingester, invalid metadata map, or extra argument fails closed, and the tool never changes the corpus or calls the executor.
+
 ---
 
 *Built as a principal-staff reference implementation of a safe, evaluable, human-supervised agent platform.*
