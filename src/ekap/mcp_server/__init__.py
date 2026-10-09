@@ -58,6 +58,10 @@ from ekap.mcp_server.national_digit_shapes import (
 )
 from ekap.mcp_server.nbsp import nbsp_sources, nbsp_spec
 from ekap.mcp_server.nel import nel_sources, nel_spec
+from ekap.mcp_server.nominal_digit_shapes import (
+    nominal_digit_shapes_sources,
+    nominal_digit_shapes_spec,
+)
 from ekap.mcp_server.paragraph_separator import (
     paragraph_separator_sources,
     paragraph_separator_spec,
@@ -136,6 +140,7 @@ class MCPServer(_MCPServer):
             national_digit_shapes_spec(),
             nbsp_spec(),
             nel_spec(),
+            nominal_digit_shapes_spec(),
             paragraph_separator_spec(),
             pop_directional_formatting_spec(),
             pop_directional_isolate_spec(),
@@ -201,6 +206,8 @@ class MCPServer(_MCPServer):
             return nbsp_sources(self, args)
         if name == "nel_sources":
             return nel_sources(self, args)
+        if name == "nominal_digit_shapes_sources":
+            return nominal_digit_shapes_sources(self, args)
         if name == "paragraph_separator_sources":
             return paragraph_separator_sources(self, args)
         if name == "pop_directional_formatting_sources":
