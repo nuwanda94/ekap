@@ -4,6 +4,10 @@ from __future__ import annotations
 
 from typing import Any
 
+from ekap.mcp_server.activate_symmetric_swapping import (
+    activate_symmetric_swapping_sources,
+    activate_symmetric_swapping_spec,
+)
 from ekap.mcp_server.arabic_letter_mark import (
     arabic_letter_mark_sources,
     arabic_letter_mark_spec,
@@ -99,6 +103,7 @@ class MCPServer(_MCPServer):
     def list_tools(self) -> tuple[ToolSpec, ...]:
         tools = super().list_tools()
         extra = (
+            activate_symmetric_swapping_spec(),
             arabic_letter_mark_spec(),
             bom_spec(),
             crlf_spec(),
@@ -139,6 +144,8 @@ class MCPServer(_MCPServer):
 
     def call(self, name: str, arguments: dict[str, Any] | None = None) -> ToolResult:
         args = dict(arguments or {})
+        if name == "activate_symmetric_swapping_sources":
+            return activate_symmetric_swapping_sources(self, args)
         if name == "arabic_letter_mark_sources":
             return arabic_letter_mark_sources(self, args)
         if name == "bom_sources":
