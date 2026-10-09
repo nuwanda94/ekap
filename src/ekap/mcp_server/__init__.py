@@ -23,6 +23,10 @@ from ekap.mcp_server.paragraph_separator import (
     paragraph_separator_spec,
 )
 from ekap.mcp_server.repeated_blank import repeated_blank_sources, repeated_blank_spec
+from ekap.mcp_server.right_to_left_mark import (
+    right_to_left_mark_sources,
+    right_to_left_mark_spec,
+)
 from ekap.mcp_server.server import MCPServer as _MCPServer
 from ekap.mcp_server.server import ToolResult, ToolSpec
 from ekap.mcp_server.tab import tab_sources, tab_spec
@@ -64,6 +68,7 @@ class MCPServer(_MCPServer):
             nel_spec(),
             paragraph_separator_spec(),
             repeated_blank_spec(),
+            right_to_left_mark_spec(),
             tab_spec(),
             trailing_blank_spec(),
             trailing_space_spec(),
@@ -105,6 +110,8 @@ class MCPServer(_MCPServer):
             return paragraph_separator_sources(self, args)
         if name == "repeated_blank_sources":
             return repeated_blank_sources(self, args)
+        if name == "right_to_left_mark_sources":
+            return right_to_left_mark_sources(self, args)
         if name == "tab_sources":
             return tab_sources(self, args)
         if name == "trailing_blank_sources":
