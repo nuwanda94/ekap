@@ -31,6 +31,10 @@ from ekap.mcp_server.paragraph_separator import (
     paragraph_separator_spec,
 )
 from ekap.mcp_server.repeated_blank import repeated_blank_sources, repeated_blank_spec
+from ekap.mcp_server.right_to_left_embedding import (
+    right_to_left_embedding_sources,
+    right_to_left_embedding_spec,
+)
 from ekap.mcp_server.right_to_left_mark import (
     right_to_left_mark_sources,
     right_to_left_mark_spec,
@@ -78,6 +82,7 @@ class MCPServer(_MCPServer):
             nel_spec(),
             paragraph_separator_spec(),
             repeated_blank_spec(),
+            right_to_left_embedding_spec(),
             right_to_left_mark_spec(),
             tab_spec(),
             trailing_blank_spec(),
@@ -124,6 +129,8 @@ class MCPServer(_MCPServer):
             return paragraph_separator_sources(self, args)
         if name == "repeated_blank_sources":
             return repeated_blank_sources(self, args)
+        if name == "right_to_left_embedding_sources":
+            return right_to_left_embedding_sources(self, args)
         if name == "right_to_left_mark_sources":
             return right_to_left_mark_sources(self, args)
         if name == "tab_sources":
