@@ -27,6 +27,10 @@ from ekap.mcp_server.trailing_space import trailing_space_sources, trailing_spac
 from ekap.mcp_server.unterminated import unterminated_sources, unterminated_spec
 from ekap.mcp_server.vertical_tab import vertical_tab_sources, vertical_tab_spec
 from ekap.mcp_server.word_joiner import word_joiner_sources, word_joiner_spec
+from ekap.mcp_server.zero_width_joiner import (
+    zero_width_joiner_sources,
+    zero_width_joiner_spec,
+)
 from ekap.mcp_server.zero_width_space import (
     zero_width_space_sources,
     zero_width_space_spec,
@@ -57,6 +61,7 @@ class MCPServer(_MCPServer):
             unterminated_spec(),
             vertical_tab_spec(),
             word_joiner_spec(),
+            zero_width_joiner_spec(),
             zero_width_space_spec(),
         )
         names = {tool.name for tool in tools}
@@ -100,6 +105,8 @@ class MCPServer(_MCPServer):
             return vertical_tab_sources(self, args)
         if name == "word_joiner_sources":
             return word_joiner_sources(self, args)
+        if name == "zero_width_joiner_sources":
+            return zero_width_joiner_sources(self, args)
         if name == "zero_width_space_sources":
             return zero_width_space_sources(self, args)
         return super().call(name, arguments)
