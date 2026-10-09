@@ -31,6 +31,10 @@ from ekap.mcp_server.zero_width_joiner import (
     zero_width_joiner_sources,
     zero_width_joiner_spec,
 )
+from ekap.mcp_server.zero_width_non_joiner import (
+    zero_width_non_joiner_sources,
+    zero_width_non_joiner_spec,
+)
 from ekap.mcp_server.zero_width_space import (
     zero_width_space_sources,
     zero_width_space_spec,
@@ -62,6 +66,7 @@ class MCPServer(_MCPServer):
             vertical_tab_spec(),
             word_joiner_spec(),
             zero_width_joiner_spec(),
+            zero_width_non_joiner_spec(),
             zero_width_space_spec(),
         )
         names = {tool.name for tool in tools}
@@ -107,6 +112,8 @@ class MCPServer(_MCPServer):
             return word_joiner_sources(self, args)
         if name == "zero_width_joiner_sources":
             return zero_width_joiner_sources(self, args)
+        if name == "zero_width_non_joiner_sources":
+            return zero_width_non_joiner_sources(self, args)
         if name == "zero_width_space_sources":
             return zero_width_space_sources(self, args)
         return super().call(name, arguments)
