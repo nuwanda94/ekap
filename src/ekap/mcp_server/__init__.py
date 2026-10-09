@@ -17,6 +17,10 @@ from ekap.mcp_server.left_to_right_embedding import (
     left_to_right_embedding_sources,
     left_to_right_embedding_spec,
 )
+from ekap.mcp_server.left_to_right_isolate import (
+    left_to_right_isolate_sources,
+    left_to_right_isolate_spec,
+)
 from ekap.mcp_server.left_to_right_mark import (
     left_to_right_mark_sources,
     left_to_right_mark_spec,
@@ -86,6 +90,7 @@ class MCPServer(_MCPServer):
             leading_blank_spec(),
             leading_space_spec(),
             left_to_right_embedding_spec(),
+            left_to_right_isolate_spec(),
             left_to_right_mark_spec(),
             left_to_right_override_spec(),
             line_separator_spec(),
@@ -130,6 +135,8 @@ class MCPServer(_MCPServer):
             return leading_space_sources(self, args)
         if name == "left_to_right_embedding_sources":
             return left_to_right_embedding_sources(self, args)
+        if name == "left_to_right_isolate_sources":
+            return left_to_right_isolate_sources(self, args)
         if name == "left_to_right_mark_sources":
             return left_to_right_mark_sources(self, args)
         if name == "left_to_right_override_sources":
