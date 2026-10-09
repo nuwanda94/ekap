@@ -30,6 +30,10 @@ from ekap.mcp_server.paragraph_separator import (
     paragraph_separator_sources,
     paragraph_separator_spec,
 )
+from ekap.mcp_server.pop_directional_formatting import (
+    pop_directional_formatting_sources,
+    pop_directional_formatting_spec,
+)
 from ekap.mcp_server.repeated_blank import repeated_blank_sources, repeated_blank_spec
 from ekap.mcp_server.right_to_left_embedding import (
     right_to_left_embedding_sources,
@@ -81,6 +85,7 @@ class MCPServer(_MCPServer):
             nbsp_spec(),
             nel_spec(),
             paragraph_separator_spec(),
+            pop_directional_formatting_spec(),
             repeated_blank_spec(),
             right_to_left_embedding_spec(),
             right_to_left_mark_spec(),
@@ -127,6 +132,8 @@ class MCPServer(_MCPServer):
             return nel_sources(self, args)
         if name == "paragraph_separator_sources":
             return paragraph_separator_sources(self, args)
+        if name == "pop_directional_formatting_sources":
+            return pop_directional_formatting_sources(self, args)
         if name == "repeated_blank_sources":
             return repeated_blank_sources(self, args)
         if name == "right_to_left_embedding_sources":
