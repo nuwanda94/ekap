@@ -4,6 +4,10 @@ from __future__ import annotations
 
 from typing import Any
 
+from ekap.mcp_server.arabic_letter_mark import (
+    arabic_letter_mark_sources,
+    arabic_letter_mark_spec,
+)
 from ekap.mcp_server.bom import bom_sources, bom_spec
 from ekap.mcp_server.crlf import crlf_sources, crlf_spec
 from ekap.mcp_server.form_feed import form_feed_sources, form_feed_spec
@@ -55,6 +59,7 @@ class MCPServer(_MCPServer):
     def list_tools(self) -> tuple[ToolSpec, ...]:
         tools = super().list_tools()
         extra = (
+            arabic_letter_mark_spec(),
             bom_spec(),
             crlf_spec(),
             form_feed_spec(),
@@ -84,6 +89,8 @@ class MCPServer(_MCPServer):
 
     def call(self, name: str, arguments: dict[str, Any] | None = None) -> ToolResult:
         args = dict(arguments or {})
+        if name == "arabic_letter_mark_sources":
+            return arabic_letter_mark_sources(self, args)
         if name == "bom_sources":
             return bom_sources(self, args)
         if name == "crlf_sources":
