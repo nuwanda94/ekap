@@ -60,6 +60,8 @@ See the previous status history on commit 7829fa4908356c3beb17038948c6bf244d05c6
 
 `right_to_left_isolate_sources` lists matching sources that contain U+2067, in insertion order, and returns source id, a metadata copy, character count, right-to-left-isolate count, run count, and whether the source starts or ends with U+2067, without source text. A run is a maximal consecutive sequence of right-to-left isolates. Ordinary whitespace, BOM, zero-width spaces, word joiners, zero-width joiners or non-joiners, left-to-right or right-to-left marks, Arabic letter marks, left-to-right or right-to-left embeddings, pop directional formatting, left-to-right or right-to-left overrides, and left-to-right isolates are not a match. A missing ingester, invalid metadata map, or extra argument fails closed, and the tool never changes the corpus or calls the executor.
 
+`first_strong_isolate_sources` lists matching sources that contain U+2068, in insertion order, and returns source id, a metadata copy, character count, first-strong-isolate count, run count, and whether the source starts or ends with U+2068, without source text. A run is a maximal consecutive sequence of first strong isolates. Ordinary whitespace, BOM, zero-width spaces, word joiners, zero-width joiners or non-joiners, left-to-right or right-to-left marks, Arabic letter marks, left-to-right or right-to-left embeddings, pop directional formatting, left-to-right or right-to-left overrides, and left-to-right or right-to-left isolates are not a match. A missing ingester, invalid metadata map, or extra argument fails closed, and the tool never changes the corpus or calls the executor.
+
 ---
 
 *Built as a principal-staff reference implementation of a safe, evaluable, human-supervised agent platform.*

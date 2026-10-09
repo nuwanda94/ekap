@@ -10,6 +10,10 @@ from ekap.mcp_server.arabic_letter_mark import (
 )
 from ekap.mcp_server.bom import bom_sources, bom_spec
 from ekap.mcp_server.crlf import crlf_sources, crlf_spec
+from ekap.mcp_server.first_strong_isolate import (
+    first_strong_isolate_sources,
+    first_strong_isolate_spec,
+)
 from ekap.mcp_server.form_feed import form_feed_sources, form_feed_spec
 from ekap.mcp_server.leading_blank import leading_blank_sources, leading_blank_spec
 from ekap.mcp_server.leading_space import leading_space_sources, leading_space_spec
@@ -90,6 +94,7 @@ class MCPServer(_MCPServer):
             arabic_letter_mark_spec(),
             bom_spec(),
             crlf_spec(),
+            first_strong_isolate_spec(),
             form_feed_spec(),
             leading_blank_spec(),
             leading_space_spec(),
@@ -130,6 +135,8 @@ class MCPServer(_MCPServer):
             return bom_sources(self, args)
         if name == "crlf_sources":
             return crlf_sources(self, args)
+        if name == "first_strong_isolate_sources":
+            return first_strong_isolate_sources(self, args)
         if name == "form_feed_sources":
             return form_feed_sources(self, args)
         if name == "leading_blank_sources":
