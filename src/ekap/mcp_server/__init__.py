@@ -15,6 +15,10 @@ from ekap.mcp_server.first_strong_isolate import (
     first_strong_isolate_spec,
 )
 from ekap.mcp_server.form_feed import form_feed_sources, form_feed_spec
+from ekap.mcp_server.inhibit_symmetric_swapping import (
+    inhibit_symmetric_swapping_sources,
+    inhibit_symmetric_swapping_spec,
+)
 from ekap.mcp_server.leading_blank import leading_blank_sources, leading_blank_spec
 from ekap.mcp_server.leading_space import leading_space_sources, leading_space_spec
 from ekap.mcp_server.left_to_right_embedding import (
@@ -100,6 +104,7 @@ class MCPServer(_MCPServer):
             crlf_spec(),
             first_strong_isolate_spec(),
             form_feed_spec(),
+            inhibit_symmetric_swapping_spec(),
             leading_blank_spec(),
             leading_space_spec(),
             left_to_right_embedding_spec(),
@@ -144,6 +149,8 @@ class MCPServer(_MCPServer):
             return first_strong_isolate_sources(self, args)
         if name == "form_feed_sources":
             return form_feed_sources(self, args)
+        if name == "inhibit_symmetric_swapping_sources":
+            return inhibit_symmetric_swapping_sources(self, args)
         if name == "leading_blank_sources":
             return leading_blank_sources(self, args)
         if name == "long_line_sources":
