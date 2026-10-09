@@ -34,6 +34,8 @@ See the previous status history on commit 7829fa4908356c3beb17038948c6bf244d05c6
 
 `zero_width_space_sources` lists matching sources that contain U+200B, in insertion order, and returns source id, a metadata copy, character count, zero-width-space count, run count, and whether the source starts or ends with U+200B, without source text. A run is a maximal consecutive sequence of zero-width spaces. Ordinary whitespace, BOM, word joiners, and zero-width joiners or non-joiners are not a match. A missing ingester, invalid metadata map, or extra argument fails closed, and the tool never changes the corpus or calls the executor.
 
+`word_joiner_sources` lists matching sources that contain U+2060, in insertion order, and returns source id, a metadata copy, character count, word-joiner count, run count, and whether the source starts or ends with U+2060, without source text. A run is a maximal consecutive sequence of word joiners. Ordinary whitespace, BOM, zero-width spaces, and zero-width joiners or non-joiners are not a match. A missing ingester, invalid metadata map, or extra argument fails closed, and the tool never changes the corpus or calls the executor.
+
 ---
 
 *Built as a principal-staff reference implementation of a safe, evaluable, human-supervised agent platform.*
