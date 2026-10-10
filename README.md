@@ -23,6 +23,10 @@ It is one system with clear boundaries, auditability, and a human-in-the-loop co
 
 The in-process MCP server exposes many read-only inspection tools for Unicode and whitespace hygiene, plus search and draft tools.
 
+`ogham_space_sources` lists matching sources that contain U+1680 (OGHAM SPACE MARK), in insertion order, and returns source id, a metadata copy, character count, ogham-space count, run count, and whether the source starts or ends with U+1680, without source text.
+Ordinary spaces, em spaces, en spaces, medium mathematical spaces, and other whitespace are not a match.
+A missing ingester, invalid metadata map, or extra argument fails closed, and the tool never changes the corpus or calls the executor.
+
 `en_quad_sources` lists matching sources that contain U+2000 (EN QUAD), in insertion order, and returns source id, a metadata copy, character count, en-quad count, run count, and whether the source starts or ends with U+2000, without source text.
 Ordinary spaces, em spaces, en spaces, and other whitespace are not a match.
 A missing ingester, invalid metadata map, or extra argument fails closed, and the tool never changes the corpus or calls the executor.
