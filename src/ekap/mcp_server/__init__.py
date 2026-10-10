@@ -44,6 +44,10 @@ from ekap.mcp_server.invisible_separator import (
     invisible_separator_sources,
     invisible_separator_spec,
 )
+from ekap.mcp_server.invisible_times import (
+    invisible_times_sources,
+    invisible_times_spec,
+)
 from ekap.mcp_server.inhibit_arabic_form_shaping import (
     inhibit_arabic_form_shaping_sources,
     inhibit_arabic_form_shaping_spec,
@@ -187,6 +191,7 @@ class MCPServer(_MCPServer):
             hair_space_spec(),
             ideographic_space_spec(),
             invisible_separator_spec(),
+            invisible_times_spec(),
             medium_mathematical_space_spec(),
             mongolian_vowel_separator_spec(),
             inhibit_arabic_form_shaping_spec(),
@@ -267,6 +272,8 @@ class MCPServer(_MCPServer):
             return ideographic_space_sources(self, args)
         if name == "invisible_separator_sources":
             return invisible_separator_sources(self, args)
+        if name == "invisible_times_sources":
+            return invisible_times_sources(self, args)
         if name == "medium_mathematical_space_sources":
             return medium_mathematical_space_sources(self, args)
         if name == "mongolian_vowel_separator_sources":

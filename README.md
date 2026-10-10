@@ -23,6 +23,10 @@ It is one system with clear boundaries, auditability, and a human-in-the-loop co
 
 The in-process MCP server exposes many read-only inspection tools for Unicode and whitespace hygiene, plus search and draft tools.
 
+`invisible_times_sources` lists matching sources that contain U+2061 (INVISIBLE TIMES), in insertion order, and returns source id, a metadata copy, character count, invisible-times count, run count, and whether the source starts or ends with U+2061, without source text.
+Ordinary spaces, em spaces, en spaces, medium mathematical spaces, Ogham space marks, Mongolian vowel separators, invisible separators, and other whitespace are not a match.
+A missing ingester, invalid metadata map, or extra argument fails closed, and the tool never changes the corpus or calls the executor.
+
 `invisible_separator_sources` lists matching sources that contain U+2063 (INVISIBLE SEPARATOR), in insertion order, and returns source id, a metadata copy, character count, invisible-separator count, run count, and whether the source starts or ends with U+2063, without source text.
 Ordinary spaces, em spaces, en spaces, medium mathematical spaces, Ogham space marks, Mongolian vowel separators, and other whitespace are not a match.
 A missing ingester, invalid metadata map, or extra argument fails closed, and the tool never changes the corpus or calls the executor.
