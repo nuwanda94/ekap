@@ -18,8 +18,8 @@ from ekap.mcp_server.arabic_letter_mark import (
 )
 from ekap.mcp_server.bom import bom_sources, bom_spec
 from ekap.mcp_server.crlf import crlf_sources, crlf_spec
-from ekap.mcp_server.em_space import em_space_sources, em_space_spec
 from ekap.mcp_server.em_quad import em_quad_sources, em_quad_spec
+from ekap.mcp_server.em_space import em_space_sources, em_space_spec
 from ekap.mcp_server.en_quad import en_quad_sources, en_quad_spec
 from ekap.mcp_server.en_space import en_space_sources, en_space_spec
 from ekap.mcp_server.figure_space import (
