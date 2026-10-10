@@ -73,6 +73,10 @@ from ekap.mcp_server.medium_mathematical_space import (
     medium_mathematical_space_spec,
 )
 from ekap.mcp_server.mixed_indent import mixed_indent_sources, mixed_indent_spec
+from ekap.mcp_server.mongolian_vowel_separator import (
+    mongolian_vowel_separator_sources,
+    mongolian_vowel_separator_spec,
+)
 from ekap.mcp_server.narrow_no_break_space import (
     narrow_no_break_space_sources,
     narrow_no_break_space_spec,
@@ -179,6 +183,7 @@ class MCPServer(_MCPServer):
             hair_space_spec(),
             ideographic_space_spec(),
             medium_mathematical_space_spec(),
+            mongolian_vowel_separator_spec(),
             inhibit_arabic_form_shaping_spec(),
             inhibit_symmetric_swapping_spec(),
             leading_blank_spec(),
@@ -257,6 +262,8 @@ class MCPServer(_MCPServer):
             return ideographic_space_sources(self, args)
         if name == "medium_mathematical_space_sources":
             return medium_mathematical_space_sources(self, args)
+        if name == "mongolian_vowel_separator_sources":
+            return mongolian_vowel_separator_sources(self, args)
         if name == "inhibit_arabic_form_shaping_sources":
             return inhibit_arabic_form_shaping_sources(self, args)
         if name == "inhibit_symmetric_swapping_sources":
