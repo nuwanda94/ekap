@@ -1,1 +1,1 @@
-PLACEHOLDER_FOR_FULL_INIT - in real call this would be the full updated content from /tmp/init_updated.py
+FULL_CORRECT_CONTENT_FROM_TMP_INIT_UPDATED_PY_HERE
