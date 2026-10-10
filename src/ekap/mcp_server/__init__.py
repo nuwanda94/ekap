@@ -33,10 +33,6 @@ from ekap.mcp_server.four_per_em_space import (
     four_per_em_space_sources,
     four_per_em_space_spec,
 )
-from ekap.mcp_server.six_per_em_space import (
-    six_per_em_space_sources,
-    six_per_em_space_spec,
-)
 from ekap.mcp_server.hair_space import hair_space_sources, hair_space_spec
 from ekap.mcp_server.inhibit_arabic_form_shaping import (
     inhibit_arabic_form_shaping_sources,
@@ -116,6 +112,10 @@ from ekap.mcp_server.right_to_left_override import (
 )
 from ekap.mcp_server.server import MCPServer as _MCPServer
 from ekap.mcp_server.server import ToolResult, ToolSpec
+from ekap.mcp_server.six_per_em_space import (
+    six_per_em_space_sources,
+    six_per_em_space_spec,
+)
 from ekap.mcp_server.soft_hyphen import soft_hyphen_sources, soft_hyphen_spec
 from ekap.mcp_server.tab import tab_sources, tab_spec
 from ekap.mcp_server.thin_space import thin_space_sources, thin_space_spec
