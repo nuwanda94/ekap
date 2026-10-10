@@ -27,6 +27,10 @@ The in-process MCP server exposes many read-only inspection tools for Unicode an
 Ordinary spaces, em spaces, en spaces, and other whitespace are not a match.
 A missing ingester, invalid metadata map, or extra argument fails closed, and the tool never changes the corpus or calls the executor.
 
+`em_quad_sources` lists matching sources that contain U+2001 (EM QUAD), in insertion order, and returns source id, a metadata copy, character count, em-quad count, run count, and whether the source starts or ends with U+2001, without source text.
+Ordinary spaces, em spaces, en spaces, EN QUADs, and other whitespace are not a match.
+A missing ingester, invalid metadata map, or extra argument fails closed, and the tool never changes the corpus or calls the executor.
+
 See source under `src/ekap/mcp_server/` for the full catalog of similar listing tools (spaces, controls, bidi marks, etc.).
 
 ---

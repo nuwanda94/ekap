@@ -19,6 +19,7 @@ from ekap.mcp_server.arabic_letter_mark import (
 from ekap.mcp_server.bom import bom_sources, bom_spec
 from ekap.mcp_server.crlf import crlf_sources, crlf_spec
 from ekap.mcp_server.em_space import em_space_sources, em_space_spec
+from ekap.mcp_server.em_quad import em_quad_sources, em_quad_spec
 from ekap.mcp_server.en_quad import en_quad_sources, en_quad_spec
 from ekap.mcp_server.en_space import en_space_sources, en_space_spec
 from ekap.mcp_server.figure_space import (
@@ -163,6 +164,7 @@ class MCPServer(_MCPServer):
             bom_spec(),
             crlf_spec(),
             em_space_spec(),
+            em_quad_spec(),
             en_quad_spec(),
             en_space_spec(),
             figure_space_spec(),
@@ -228,6 +230,8 @@ class MCPServer(_MCPServer):
             return crlf_sources(self, args)
         if name == "em_space_sources":
             return em_space_sources(self, args)
+        if name == "em_quad_sources":
+            return em_quad_sources(self, args)
         if name == "en_quad_sources":
             return en_quad_sources(self, args)
         if name == "en_space_sources":
