@@ -19,6 +19,7 @@ from ekap.mcp_server.arabic_letter_mark import (
 from ekap.mcp_server.bom import bom_sources, bom_spec
 from ekap.mcp_server.crlf import crlf_sources, crlf_spec
 from ekap.mcp_server.em_space import em_space_sources, em_space_spec
+from ekap.mcp_server.en_space import en_space_sources, en_space_spec
 from ekap.mcp_server.figure_space import (
     figure_space_sources,
     figure_space_spec,
@@ -141,6 +142,7 @@ class MCPServer(_MCPServer):
             bom_spec(),
             crlf_spec(),
             em_space_spec(),
+            en_space_spec(),
             figure_space_spec(),
             first_strong_isolate_spec(),
             form_feed_spec(),
@@ -199,6 +201,8 @@ class MCPServer(_MCPServer):
             return crlf_sources(self, args)
         if name == "em_space_sources":
             return em_space_sources(self, args)
+        if name == "en_space_sources":
+            return en_space_sources(self, args)
         if name == "figure_space_sources":
             return figure_space_sources(self, args)
         if name == "first_strong_isolate_sources":
