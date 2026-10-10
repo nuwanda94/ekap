@@ -33,6 +33,10 @@ from ekap.mcp_server.four_per_em_space import (
     four_per_em_space_sources,
     four_per_em_space_spec,
 )
+from ekap.mcp_server.six_per_em_space import (
+    six_per_em_space_sources,
+    six_per_em_space_spec,
+)
 from ekap.mcp_server.hair_space import hair_space_sources, hair_space_spec
 from ekap.mcp_server.inhibit_arabic_form_shaping import (
     inhibit_arabic_form_shaping_sources,
@@ -155,6 +159,7 @@ class MCPServer(_MCPServer):
             first_strong_isolate_spec(),
             form_feed_spec(),
             four_per_em_space_spec(),
+            six_per_em_space_spec(),
             hair_space_spec(),
             inhibit_arabic_form_shaping_spec(),
             inhibit_symmetric_swapping_spec(),
@@ -221,6 +226,8 @@ class MCPServer(_MCPServer):
             return form_feed_sources(self, args)
         if name == "four_per_em_space_sources":
             return four_per_em_space_sources(self, args)
+        if name == "six_per_em_space_sources":
+            return six_per_em_space_sources(self, args)
         if name == "hair_space_sources":
             return hair_space_sources(self, args)
         if name == "inhibit_arabic_form_shaping_sources":
