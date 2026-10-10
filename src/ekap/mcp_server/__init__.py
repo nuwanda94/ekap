@@ -52,6 +52,10 @@ from ekap.mcp_server.left_to_right_override import (
 from ekap.mcp_server.line_separator import line_separator_sources, line_separator_spec
 from ekap.mcp_server.long_line import long_line_sources, long_line_spec
 from ekap.mcp_server.mixed_indent import mixed_indent_sources, mixed_indent_spec
+from ekap.mcp_server.narrow_no_break_space import (
+    narrow_no_break_space_sources,
+    narrow_no_break_space_spec,
+)
 from ekap.mcp_server.national_digit_shapes import (
     national_digit_shapes_sources,
     national_digit_shapes_spec,
@@ -138,6 +142,7 @@ class MCPServer(_MCPServer):
             line_separator_spec(),
             long_line_spec(),
             mixed_indent_spec(),
+            narrow_no_break_space_spec(),
             national_digit_shapes_spec(),
             nbsp_spec(),
             nel_spec(),
@@ -202,6 +207,8 @@ class MCPServer(_MCPServer):
             return line_separator_sources(self, args)
         if name == "mixed_indent_sources":
             return mixed_indent_sources(self, args)
+        if name == "narrow_no_break_space_sources":
+            return narrow_no_break_space_sources(self, args)
         if name == "national_digit_shapes_sources":
             return national_digit_shapes_sources(self, args)
         if name == "nbsp_sources":
