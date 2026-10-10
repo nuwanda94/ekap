@@ -19,15 +19,15 @@ from ekap.mcp_server.arabic_letter_mark import (
 from ekap.mcp_server.bom import bom_sources, bom_spec
 from ekap.mcp_server.crlf import crlf_sources, crlf_spec
 from ekap.mcp_server.em_space import em_space_sources, em_space_spec
+from ekap.mcp_server.figure_space import (
+    figure_space_sources,
+    figure_space_spec,
+)
 from ekap.mcp_server.first_strong_isolate import (
     first_strong_isolate_sources,
     first_strong_isolate_spec,
 )
 from ekap.mcp_server.form_feed import form_feed_sources, form_feed_spec
-from ekap.mcp_server.figure_space import (
-    figure_space_sources,
-    figure_space_spec,
-)
 from ekap.mcp_server.hair_space import hair_space_sources, hair_space_spec
 from ekap.mcp_server.inhibit_arabic_form_shaping import (
     inhibit_arabic_form_shaping_sources,
@@ -141,9 +141,9 @@ class MCPServer(_MCPServer):
             bom_spec(),
             crlf_spec(),
             em_space_spec(),
+            figure_space_spec(),
             first_strong_isolate_spec(),
             form_feed_spec(),
-            figure_space_spec(),
             hair_space_spec(),
             inhibit_arabic_form_shaping_spec(),
             inhibit_symmetric_swapping_spec(),
@@ -199,12 +199,12 @@ class MCPServer(_MCPServer):
             return crlf_sources(self, args)
         if name == "em_space_sources":
             return em_space_sources(self, args)
+        if name == "figure_space_sources":
+            return figure_space_sources(self, args)
         if name == "first_strong_isolate_sources":
             return first_strong_isolate_sources(self, args)
         if name == "form_feed_sources":
             return form_feed_sources(self, args)
-        if name == "figure_space_sources":
-            return figure_space_sources(self, args)
         if name == "hair_space_sources":
             return hair_space_sources(self, args)
         if name == "inhibit_arabic_form_shaping_sources":
