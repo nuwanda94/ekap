@@ -40,6 +40,10 @@ from ekap.mcp_server.ideographic_space import (
     ideographic_space_sources,
     ideographic_space_spec,
 )
+from ekap.mcp_server.invisible_plus import (
+    invisible_plus_sources,
+    invisible_plus_spec,
+)
 from ekap.mcp_server.invisible_separator import (
     invisible_separator_sources,
     invisible_separator_spec,
@@ -190,6 +194,7 @@ class MCPServer(_MCPServer):
             six_per_em_space_spec(),
             hair_space_spec(),
             ideographic_space_spec(),
+            invisible_plus_spec(),
             invisible_separator_spec(),
             invisible_times_spec(),
             medium_mathematical_space_spec(),
@@ -270,6 +275,8 @@ class MCPServer(_MCPServer):
             return hair_space_sources(self, args)
         if name == "ideographic_space_sources":
             return ideographic_space_sources(self, args)
+        if name == "invisible_plus_sources":
+            return invisible_plus_sources(self, args)
         if name == "invisible_separator_sources":
             return invisible_separator_sources(self, args)
         if name == "invisible_times_sources":
