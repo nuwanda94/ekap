@@ -110,6 +110,19 @@ def test_clear_empties_corpus_and_leaves_settings() -> None:
     assert hits and hits[0].chunk.source_id == "policy-1"
 
 
+def test_len_reports_document_count() -> None:
+    ingester = Ingester()
+    assert len(ingester) == 0
+    ingester.add("policy-1", POLICY)
+    assert len(ingester) == 1
+    ingester.add("handbook-1", HANDBOOK)
+    assert len(ingester) == 2
+    ingester.remove("policy-1")
+    assert len(ingester) == 1
+    ingester.clear()
+    assert len(ingester) == 0
+
+
 def test_rejects_blank_document() -> None:
     ingester = Ingester()
     with pytest.raises(ValueError):

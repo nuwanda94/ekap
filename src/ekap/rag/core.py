@@ -90,6 +90,10 @@ class Ingester:
     def chunks(self) -> tuple[Chunk, ...]:
         return tuple(self._chunks)
 
+    def __len__(self) -> int:
+        """Return the number of ingested documents."""
+        return len(self._documents)
+
     def add(
         self,
         source_id: str,
