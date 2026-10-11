@@ -132,6 +132,27 @@ class Ingester:
             raise KeyError(f"unknown source: {cleaned_id}")
         return _copy_document(self._documents[cleaned_id])
 
+    def update_metadata(self, source_id: str, metadata: dict[str, str]) -> Document:
+        """Replace metadata on an existing document without re-chunking.
+
+        Leading and trailing whitespace is stripped from the source id.
+        Raises KeyError if the source is not present. The returned document is a
+        copy so later mutation cannot change the stored corpus. Chunks and text
+        are left unchanged. Empty metadata is allowed.
+        """
+        cleaned_id = _require_source_id(source_id)
+        if cleaned_id not in self._documents:
+            raise KeyError(f"unknown source: {cleaned_id}")
+        cleaned_meta = _normalize_metadata_filter(metadata)
+        existing = self._documents[cleaned_id]
+        updated = Document(
+            source_id=existing.source_id,
+            text=existing.text,
+            metadata=cleaned_meta,
+        )
+        self._documents[cleaned_id] = updated
+        return _copy_document(updated)
+
     def add(
         self,
         source_id: str,

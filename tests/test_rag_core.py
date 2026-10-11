@@ -189,6 +189,39 @@ def test_get_returns_document_copy() -> None:
         ingester.get("   ")
 
 
+def test_update_metadata_replaces_without_rechunking() -> None:
+    ingester = Ingester()
+    ingester.add("policy-1", POLICY, metadata={"kind": "policy", "tenant": "acme"})
+    original_chunks = ingester.chunks
+    assert len(original_chunks) >= 1
+    updated = ingester.update_metadata("  policy-1  ", {"kind": "handbook", "status": "active"})
+    assert updated.source_id == "policy-1"
+    assert updated.text == POLICY
+    assert updated.metadata == {"kind": "handbook", "status": "active"}
+    # Returned copy is defensive
+    updated.metadata["status"] = "mutated"
+    stored = ingester.get("policy-1")
+    assert stored.metadata == {"kind": "handbook", "status": "active"}
+    # Chunks unchanged
+    assert ingester.chunks == original_chunks
+    # Filtering now sees the new metadata
+    hits = Retriever(ingester).query("manager approval", metadata={"kind": "handbook"})
+    assert hits and hits[0].chunk.source_id == "policy-1"
+    # Empty metadata is allowed
+    cleared = ingester.update_metadata("policy-1", {})
+    assert cleared.metadata == {}
+    # Missing source
+    with pytest.raises(KeyError):
+        ingester.update_metadata("missing", {"x": "y"})
+    # Invalid metadata
+    with pytest.raises(TypeError):
+        ingester.update_metadata("policy-1", {"x": 1})  # type: ignore[dict-item]
+    with pytest.raises(ValueError):
+        ingester.update_metadata("policy-1", {"": "y"})
+    with pytest.raises(ValueError):
+        ingester.update_metadata("   ", {"x": "y"})
+
+
 def test_rejects_blank_document() -> None:
     ingester = Ingester()
     with pytest.raises(ValueError):

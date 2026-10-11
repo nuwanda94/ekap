@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Ingester.__iter__` yields defensive copies of ingested documents in insertion order.
 - `Ingester.get` returns a defensive copy of a document by source id (whitespace-tolerant; raises KeyError if absent).
 - `Ingester.source_ids` returns source ids in insertion order.
+- `Ingester.update_metadata` replaces document metadata without re-chunking (whitespace-tolerant source id; fails closed on missing source or invalid metadata).
 
 ### Notes
 - Alpha reference implementation. No network calls or real LLM keys required for unit tests.
