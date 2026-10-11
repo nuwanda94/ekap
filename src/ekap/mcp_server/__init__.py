@@ -119,10 +119,6 @@ from ekap.mcp_server.object_replacement import (
     object_replacement_sources,
     object_replacement_spec,
 )
-from ekap.mcp_server.replacement_character import (
-    replacement_character_sources,
-    replacement_character_spec,
-)
 from ekap.mcp_server.ogham_space import (
     ogham_space_sources,
     ogham_space_spec,
@@ -144,6 +140,10 @@ from ekap.mcp_server.punctuation_space import (
     punctuation_space_spec,
 )
 from ekap.mcp_server.repeated_blank import repeated_blank_sources, repeated_blank_spec
+from ekap.mcp_server.replacement_character import (
+    replacement_character_sources,
+    replacement_character_spec,
+)
 from ekap.mcp_server.right_to_left_embedding import (
     right_to_left_embedding_sources,
     right_to_left_embedding_spec,
