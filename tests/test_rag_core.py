@@ -142,6 +142,22 @@ def test_contains_reports_source_presence() -> None:
     assert "handbook-1" not in ingester
 
 
+def test_iter_yields_document_copies_in_insertion_order() -> None:
+    ingester = Ingester()
+    assert list(ingester) == []
+    ingester.add("policy-1", POLICY, metadata={"kind": "policy"})
+    ingester.add("handbook-1", HANDBOOK)
+    docs = list(ingester)
+    assert [doc.source_id for doc in docs] == ["policy-1", "handbook-1"]
+    assert docs[0].text == POLICY
+    assert docs[0].metadata == {"kind": "policy"}
+    docs[0].metadata["kind"] = "mutated"
+    again = list(ingester)
+    assert again[0].metadata == {"kind": "policy"}
+    ingester.clear()
+    assert list(ingester) == []
+
+
 def test_source_ids_reports_insertion_order() -> None:
     ingester = Ingester()
     assert ingester.source_ids == ()

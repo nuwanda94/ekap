@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 
 _TOKEN = re.compile(r"[a-z0-9]+")
@@ -111,6 +112,13 @@ class Ingester:
         if not cleaned:
             return False
         return cleaned in self._documents
+
+    def __iter__(self) -> Iterator[Document]:
+        """Yield defensive copies of ingested documents in insertion order.
+
+        Mutating a yielded document's metadata cannot change the stored corpus.
+        """
+        return (_copy_document(document) for document in self._documents.values())
 
     def get(self, source_id: str) -> Document:
         """Return a copy of the document for the given source id.
