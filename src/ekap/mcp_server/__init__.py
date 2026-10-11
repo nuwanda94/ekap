@@ -31,13 +31,13 @@ from ekap.mcp_server.first_strong_isolate import (
     first_strong_isolate_spec,
 )
 from ekap.mcp_server.form_feed import form_feed_sources, form_feed_spec
-from ekap.mcp_server.function_application import (
-    function_application_sources,
-    function_application_spec,
-)
 from ekap.mcp_server.four_per_em_space import (
     four_per_em_space_sources,
     four_per_em_space_spec,
+)
+from ekap.mcp_server.function_application import (
+    function_application_sources,
+    function_application_spec,
 )
 from ekap.mcp_server.hair_space import hair_space_sources, hair_space_spec
 from ekap.mcp_server.ideographic_space import (
@@ -194,8 +194,8 @@ class MCPServer(_MCPServer):
             figure_space_spec(),
             first_strong_isolate_spec(),
             form_feed_spec(),
-            function_application_spec(),
             four_per_em_space_spec(),
+            function_application_spec(),
             six_per_em_space_spec(),
             hair_space_spec(),
             ideographic_space_spec(),
@@ -272,10 +272,10 @@ class MCPServer(_MCPServer):
             return first_strong_isolate_sources(self, args)
         if name == "form_feed_sources":
             return form_feed_sources(self, args)
-        if name == "function_application_sources":
-            return function_application_sources(self, args)
         if name == "four_per_em_space_sources":
             return four_per_em_space_sources(self, args)
+        if name == "function_application_sources":
+            return function_application_sources(self, args)
         if name == "six_per_em_space_sources":
             return six_per_em_space_sources(self, args)
         if name == "hair_space_sources":
