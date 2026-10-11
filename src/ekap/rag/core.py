@@ -90,6 +90,11 @@ class Ingester:
     def chunks(self) -> tuple[Chunk, ...]:
         return tuple(self._chunks)
 
+    @property
+    def source_ids(self) -> tuple[str, ...]:
+        """Return source ids of ingested documents in insertion order."""
+        return tuple(self._documents.keys())
+
     def __len__(self) -> int:
         """Return the number of ingested documents."""
         return len(self._documents)

@@ -142,6 +142,21 @@ def test_contains_reports_source_presence() -> None:
     assert "handbook-1" not in ingester
 
 
+def test_source_ids_reports_insertion_order() -> None:
+    ingester = Ingester()
+    assert ingester.source_ids == ()
+    ingester.add("policy-1", POLICY)
+    assert ingester.source_ids == ("policy-1",)
+    ingester.add("handbook-1", HANDBOOK)
+    assert ingester.source_ids == ("policy-1", "handbook-1")
+    ingester.add("policy-1", "updated")
+    assert ingester.source_ids == ("policy-1", "handbook-1")
+    ingester.remove("policy-1")
+    assert ingester.source_ids == ("handbook-1",)
+    ingester.clear()
+    assert ingester.source_ids == ()
+
+
 def test_get_returns_document_copy() -> None:
     ingester = Ingester()
     ingester.add("policy-1", POLICY, metadata={"kind": "policy"})
