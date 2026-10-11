@@ -123,6 +123,25 @@ def test_len_reports_document_count() -> None:
     assert len(ingester) == 0
 
 
+def test_contains_reports_source_presence() -> None:
+    ingester = Ingester()
+    assert "policy-1" not in ingester
+    assert 1 not in ingester
+    assert "" not in ingester
+    assert "  " not in ingester
+    ingester.add("policy-1", POLICY)
+    assert "policy-1" in ingester
+    assert "  policy-1  " in ingester
+    assert "handbook-1" not in ingester
+    ingester.add("handbook-1", HANDBOOK)
+    assert "handbook-1" in ingester
+    ingester.remove("policy-1")
+    assert "policy-1" not in ingester
+    assert "handbook-1" in ingester
+    ingester.clear()
+    assert "handbook-1" not in ingester
+
+
 def test_rejects_blank_document() -> None:
     ingester = Ingester()
     with pytest.raises(ValueError):

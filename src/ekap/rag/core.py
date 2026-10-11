@@ -94,6 +94,19 @@ class Ingester:
         """Return the number of ingested documents."""
         return len(self._documents)
 
+    def __contains__(self, source_id: object) -> bool:
+        """Return True if a document with the given source id is present.
+
+        Non-string values and blank ids return False. Leading and trailing
+        whitespace is stripped to match add and remove.
+        """
+        if not isinstance(source_id, str):
+            return False
+        cleaned = source_id.strip()
+        if not cleaned:
+            return False
+        return cleaned in self._documents
+
     def add(
         self,
         source_id: str,

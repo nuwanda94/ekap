@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Zero-runtime-deps package layout, typed public APIs, ruff + pytest + golden-evals CI.
 - `Ingester.clear()` to reset the in-memory corpus while preserving chunk settings.
 - `Ingester.__len__` reports the number of ingested documents.
+- `Ingester.__contains__` supports membership testing for source ids (whitespace-tolerant, fails closed on non-strings).
 
 ### Notes
 - Alpha reference implementation. No network calls or real LLM keys required for unit tests.
