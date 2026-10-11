@@ -1,1 +1,1 @@
-$(cat /tmp/ekap/src/ekap/mcp_server/__init__.py)
+PLACEHOLDER_FOR_FULL_CONTENT
