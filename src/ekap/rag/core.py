@@ -132,6 +132,18 @@ class Ingester:
             raise KeyError(f"unknown source: {cleaned_id}")
         return _copy_document(self._documents[cleaned_id])
 
+    def chunks_for(self, source_id: str) -> tuple[Chunk, ...]:
+        """Return the chunks belonging to the given source id.
+
+        Leading and trailing whitespace is stripped from the source id.
+        Raises KeyError if the source is not present. Chunks are returned in
+        index order. The corpus is not changed.
+        """
+        cleaned_id = _require_source_id(source_id)
+        if cleaned_id not in self._documents:
+            raise KeyError(f"unknown source: {cleaned_id}")
+        return tuple(chunk for chunk in self._chunks if chunk.source_id == cleaned_id)
+
     def update_metadata(self, source_id: str, metadata: dict[str, str]) -> Document:
         """Replace metadata on an existing document without re-chunking.
 

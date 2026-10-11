@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Ingester.source_ids` returns source ids in insertion order.
 - `Ingester.update_metadata` replaces document metadata without re-chunking (whitespace-tolerant source id; fails closed on missing source or invalid metadata).
 - `Ingester.update_text` replaces document text and re-chunks it while preserving metadata (whitespace-tolerant source id; fails closed on missing source or blank text).
+- `Ingester.chunks_for` returns the chunks belonging to a source id in index order (whitespace-tolerant; raises KeyError if absent).
 
 ### Notes
 - Alpha reference implementation. No network calls or real LLM keys required for unit tests.

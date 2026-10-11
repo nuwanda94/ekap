@@ -189,6 +189,32 @@ def test_get_returns_document_copy() -> None:
         ingester.get("   ")
 
 
+def test_chunks_for_returns_source_chunks() -> None:
+    ingester = Ingester(chunk_size=80, chunk_overlap=10)
+    ingester.add("policy-1", POLICY, metadata={"kind": "policy"})
+    ingester.add("handbook-1", HANDBOOK)
+    policy_chunks = ingester.chunks_for("  policy-1  ")
+    assert all(chunk.source_id == "policy-1" for chunk in policy_chunks)
+    assert all("manager approval" in chunk.text or "Travel must" in chunk.text for chunk in policy_chunks)
+    assert len(policy_chunks) >= 1
+    assert policy_chunks == tuple(c for c in ingester.chunks if c.source_id == "policy-1")
+    handbook_chunks = ingester.chunks_for("handbook-1")
+    assert all(chunk.source_id == "handbook-1" for chunk in handbook_chunks)
+    assert len(handbook_chunks) >= 1
+    # Order by index
+    assert [c.index for c in policy_chunks] == sorted(c.index for c in policy_chunks)
+    with pytest.raises(KeyError):
+        ingester.chunks_for("missing")
+    with pytest.raises(ValueError):
+        ingester.chunks_for("   ")
+    # After update, chunks_for sees the new chunks
+    ingester.update_text("policy-1", "Short new policy text.")
+    new_chunks = ingester.chunks_for("policy-1")
+    assert len(new_chunks) == 1
+    assert "Short new policy" in new_chunks[0].text
+    assert "manager approval" not in new_chunks[0].text
+
+
 def test_update_metadata_replaces_without_rechunking() -> None:
     ingester = Ingester()
     ingester.add("policy-1", POLICY, metadata={"kind": "policy", "tenant": "acme"})
