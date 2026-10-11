@@ -40,6 +40,14 @@ from ekap.mcp_server.ideographic_space import (
     ideographic_space_sources,
     ideographic_space_spec,
 )
+from ekap.mcp_server.inhibit_arabic_form_shaping import (
+    inhibit_arabic_form_shaping_sources,
+    inhibit_arabic_form_shaping_spec,
+)
+from ekap.mcp_server.inhibit_symmetric_swapping import (
+    inhibit_symmetric_swapping_sources,
+    inhibit_symmetric_swapping_spec,
+)
 from ekap.mcp_server.invisible_plus import (
     invisible_plus_sources,
     invisible_plus_spec,
@@ -51,14 +59,6 @@ from ekap.mcp_server.invisible_separator import (
 from ekap.mcp_server.invisible_times import (
     invisible_times_sources,
     invisible_times_spec,
-)
-from ekap.mcp_server.inhibit_arabic_form_shaping import (
-    inhibit_arabic_form_shaping_sources,
-    inhibit_arabic_form_shaping_spec,
-)
-from ekap.mcp_server.inhibit_symmetric_swapping import (
-    inhibit_symmetric_swapping_sources,
-    inhibit_symmetric_swapping_spec,
 )
 from ekap.mcp_server.leading_blank import leading_blank_sources, leading_blank_spec
 from ekap.mcp_server.leading_space import leading_space_sources, leading_space_spec
