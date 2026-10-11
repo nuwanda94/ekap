@@ -119,6 +119,14 @@ class Ingester:
         self._chunks = [chunk for chunk in self._chunks if chunk.source_id != cleaned_id]
         return document
 
+    def clear(self) -> None:
+        """Remove every ingested document and its chunks.
+
+        The corpus is empty afterward. Chunk size and overlap settings are unchanged.
+        """
+        self._documents.clear()
+        self._chunks.clear()
+
     def find(self, *, metadata: dict[str, str] | None = None) -> tuple[Document, ...]:
         """Return ingested documents whose metadata matches every filter pair.
 

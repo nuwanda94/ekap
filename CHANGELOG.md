@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Evals: 22 golden questions and runner that exits non-zero on regression; invoked from CI.
 - Source-removal helpers under the approval-gate pattern.
 - Zero-runtime-deps package layout, typed public APIs, ruff + pytest + golden-evals CI.
+- `Ingester.clear()` to reset the in-memory corpus while preserving chunk settings.
 
 ### Notes
 - Alpha reference implementation. No network calls or real LLM keys required for unit tests.

@@ -92,6 +92,24 @@ def test_remove_withdraws_source_from_retrieval() -> None:
         ingester.remove("policy-1")
 
 
+def test_clear_empties_corpus_and_leaves_settings() -> None:
+    ingester = Ingester(chunk_size=80, chunk_overlap=10)
+    ingester.add("policy-1", POLICY)
+    ingester.add("handbook-1", HANDBOOK)
+    assert len(ingester.documents) == 2
+    assert len(ingester.chunks) >= 2
+    ingester.clear()
+    assert ingester.documents == ()
+    assert ingester.chunks == ()
+    assert ingester.chunk_size == 80
+    assert ingester.chunk_overlap == 10
+    # Can still ingest after clear
+    ingester.add("policy-1", POLICY)
+    assert len(ingester.documents) == 1
+    hits = Retriever(ingester).query("manager approval", top_k=1)
+    assert hits and hits[0].chunk.source_id == "policy-1"
+
+
 def test_rejects_blank_document() -> None:
     ingester = Ingester()
     with pytest.raises(ValueError):
