@@ -136,7 +136,7 @@ from ekap.mcp_server.punctuation_space import (
     punctuation_space_spec,
 )
 from ekap.mcp_server.repeated_blank import repeated_blank_sources, repeated_blank_spec
-from ekap.mcp_server.right_to_right_embedding import (
+from ekap.mcp_server.right_to_left_embedding import (
     right_to_left_embedding_sources,
     right_to_left_embedding_spec,
 )
