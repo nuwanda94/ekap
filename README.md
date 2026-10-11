@@ -23,6 +23,10 @@ It is one system with clear boundaries, auditability, and a human-in-the-loop co
 
 The in-process MCP server exposes many read-only inspection tools for Unicode and whitespace hygiene, plus search and draft tools.
 
+`object_replacement_sources` lists matching sources that contain U+FFFC (OBJECT REPLACEMENT CHARACTER), in insertion order, and returns source id, a metadata copy, character count, object-replacement count, run count, and whether the source starts or ends with U+FFFC, without source text.
+Ordinary spaces, em spaces, en spaces, medium mathematical spaces, Ogham space marks, Mongolian vowel separators, invisible separators, invisible times, invisible plus, function applications, combining grapheme joiners, braille pattern blanks, and other whitespace are not a match.
+A missing ingester, invalid metadata map, or extra argument fails closed, and the tool never changes the corpus or calls the executor.
+
 `braille_pattern_blank_sources` lists matching sources that contain U+2800 (BRAILLE PATTERN BLANK), in insertion order, and returns source id, a metadata copy, character count, braille-pattern-blank count, run count, and whether the source starts or ends with U+2800, without source text.
 Ordinary spaces, em spaces, en spaces, medium mathematical spaces, Ogham space marks, Mongolian vowel separators, invisible separators, invisible times, invisible plus, function applications, combining grapheme joiners, and other whitespace are not a match.
 A missing ingester, invalid metadata map, or extra argument fails closed, and the tool never changes the corpus or calls the executor.
