@@ -6,72 +6,89 @@
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
-EKAP is deliberately built to prove five capabilities in one coherent codebase:
+EKAP is deliberately built to prove five capabilities in one coherent codebase — not five disconnected demos.
 
 | Capability | What it demonstrates |
 |------------|----------------------|
 | **RAG** | Answers *only* from approved documents and cites every claim |
 | **MCP** | Exposes real tools any agent can call through the Model Context Protocol |
 | **Planning** | Explicit plan → retrieve/search → synthesize, with full citation trail |
-| **Evals** | 20+ golden questions scored automatically on every PR |
-| **Approval Gate** | Side-effecting actions are drafted only; a human must click Approve |
+| **Evals** | 20+ golden questions scored automatically on every CI run |
+| **Approval Gate** | Side-effecting actions are drafted only; a human must approve before execute |
 
-This is not five disconnected demos.
-It is one system with clear boundaries, auditability, and a human-in-the-loop control plane.
+Clear package boundaries, no hidden network or LLM calls in unit tests, and a human-in-the-loop control plane for anything that mutates state.
 
-## MCP Tools
+---
 
-The in-process MCP server exposes many read-only inspection tools for Unicode and whitespace hygiene, plus search and draft tools.
+## Package layout
 
-`object_replacement_sources` lists matching sources that contain U+FFFC (OBJECT REPLACEMENT CHARACTER), in insertion order, and returns source id, a metadata copy, character count, object-replacement count, run count, and whether the source starts or ends with U+FFFC, without source text.
-Ordinary spaces, em spaces, en spaces, medium mathematical spaces, Ogham space marks, Mongolian vowel separators, invisible separators, invisible times, invisible plus, function applications, combining grapheme joiners, braille pattern blanks, and other whitespace are not a match.
-A missing ingester, invalid metadata map, or extra argument fails closed, and the tool never changes the corpus or calls the executor.
+```text
+src/ekap/
+  rag/           # Ingester, Retriever, cite() — in-memory, pure Python
+  mcp_server/    # In-process MCP server + tool catalog
+  agents/        # Orchestrator (plan → retrieve → synthesize) + approval gate
+  evals/         # Golden set + non-zero-on-regression runner
+tests/           # Mirrors src/ekap/; no real keys or network required
+```
 
-`braille_pattern_blank_sources` lists matching sources that contain U+2800 (BRAILLE PATTERN BLANK), in insertion order, and returns source id, a metadata copy, character count, braille-pattern-blank count, run count, and whether the source starts or ends with U+2800, without source text.
-Ordinary spaces, em spaces, en spaces, medium mathematical spaces, Ogham space marks, Mongolian vowel separators, invisible separators, invisible times, invisible plus, function applications, combining grapheme joiners, and other whitespace are not a match.
-A missing ingester, invalid metadata map, or extra argument fails closed, and the tool never changes the corpus or calls the executor.
+Public APIs are typed (Python 3.12+). Side effects stay behind the approval-gate pattern once an action is drafted.
 
-`combining_grapheme_joiner_sources` lists matching sources that contain U+034F (COMBINING GRAPHEME JOINER), in insertion order, and returns source id, a metadata copy, character count, combining-grapheme-joiner count, run count, and whether the source starts or ends with U+034F, without source text.
-Ordinary spaces, em spaces, en spaces, medium mathematical spaces, Ogham space marks, Mongolian vowel separators, invisible separators, invisible times, invisible plus, function applications, and other whitespace are not a match.
-A missing ingester, invalid metadata map, or extra argument fails closed, and the tool never changes the corpus or calls the executor.
+---
 
-`function_application_sources` lists matching sources that contain U+2062 (FUNCTION APPLICATION), in insertion order, and returns source id, a metadata copy, character count, function-application count, run count, and whether the source starts or ends with U+2062, without source text.
-Ordinary spaces, em spaces, en spaces, medium mathematical spaces, Ogham space marks, Mongolian vowel separators, invisible separators, invisible times, invisible plus, and other whitespace are not a match.
-A missing ingester, invalid metadata map, or extra argument fails closed, and the tool never changes the corpus or calls the executor.
+## Quick start
 
-`invisible_plus_sources` lists matching sources that contain U+2064 (INVISIBLE PLUS), in insertion order, and returns source id, a metadata copy, character count, invisible-plus count, run count, and whether the source starts or ends with U+2064, without source text.
-Ordinary spaces, em spaces, en spaces, medium mathematical spaces, Ogham space marks, Mongolian vowel separators, invisible separators, invisible times, and other whitespace are not a match.
-A missing ingester, invalid metadata map, or extra argument fails closed, and the tool never changes the corpus or calls the executor.
+Requires [uv](https://docs.astral.sh/uv/) and Python 3.12+.
 
-`invisible_times_sources` lists matching sources that contain U+2061 (INVISIBLE TIMES), in insertion order, and returns source id, a metadata copy, character count, invisible-times count, run count, and whether the source starts or ends with U+2061, without source text.
-Ordinary spaces, em spaces, en spaces, medium mathematical spaces, Ogham space marks, Mongolian vowel separators, invisible separators, and other whitespace are not a match.
-A missing ingester, invalid metadata map, or extra argument fails closed, and the tool never changes the corpus or calls the executor.
+```bash
+uv sync --extra dev
+uv run ruff check .
+uv run pytest --cov=ekap -q
+uv run python -m ekap.evals   # scores the golden set; exits non-zero on regression
+```
 
-`invisible_separator_sources` lists matching sources that contain U+2063 (INVISIBLE SEPARATOR), in insertion order, and returns source id, a metadata copy, character count, invisible-separator count, run count, and whether the source starts or ends with U+2063, without source text.
-Ordinary spaces, em spaces, en spaces, medium mathematical spaces, Ogham space marks, Mongolian vowel separators, and other whitespace are not a match.
-A missing ingester, invalid metadata map, or extra argument fails closed, and the tool never changes the corpus or calls the executor.
+Install is zero-runtime-deps by design. Dev extras pull in `pytest`, `pytest-cov`, and `ruff` only.
 
-`mongolian_vowel_separator_sources` lists matching sources that contain U+180E (MONGOLIAN VOWEL SEPARATOR), in insertion order, and returns source id, a metadata copy, character count, mongolian-vowel-separator count, run count, and whether the source starts or ends with U+180E, without source text.
-Ordinary spaces, em spaces, en spaces, medium mathematical spaces, Ogham space marks, and other whitespace are not a match.
-A missing ingester, invalid metadata map, or extra argument fails closed, and the tool never changes the corpus or calls the executor.
+---
 
-`ogham_space_sources` lists matching sources that contain U+1680 (OGHAM SPACE MARK), in insertion order, and returns source id, a metadata copy, character count, ogham-space count, run count, and whether the source starts or ends with U+1680, without source text.
-Ordinary spaces, em spaces, en spaces, medium mathematical spaces, and other whitespace are not a match.
-A missing ingester, invalid metadata map, or extra argument fails closed, and the tool never changes the corpus or calls the executor.
+## Core modules
 
-`en_quad_sources` lists matching sources that contain U+2000 (EN QUAD), in insertion order, and returns source id, a metadata copy, character count, en-quad count, run count, and whether the source starts or ends with U+2000, without source text.
-Ordinary spaces, em spaces, en spaces, and other whitespace are not a match.
-A missing ingester, invalid metadata map, or extra argument fails closed, and the tool never changes the corpus or calls the executor.
+### RAG (`ekap.rag`)
 
-`em_quad_sources` lists matching sources that contain U+2001 (EM QUAD), in insertion order, and returns source id, a metadata copy, character count, em-quad count, run count, and whether the source starts or ends with U+2001, without source text.
-Ordinary spaces, em spaces, en spaces, EN QUADs, and other whitespace are not a match.
-A missing ingester, invalid metadata map, or extra argument fails closed, and the tool never changes the corpus or calls the executor.
+In-memory ingest and retrieval with citation objects (`source_id` + snippet). Suitable for unit tests and local demos; swap the store when you need persistence.
 
-`replacement_character_sources` lists matching sources that contain U+FFFD (REPLACEMENT CHARACTER), in insertion order, and returns source id, a metadata copy, character count, replacement-character count, run count, and whether the source starts or ends with U+FFFD, without source text.
-Ordinary spaces, em spaces, en spaces, medium mathematical spaces, Ogham space marks, Mongolian vowel separators, invisible separators, invisible times, invisible plus, function applications, combining grapheme joiners, braille pattern blanks, object replacement characters, and other whitespace are not a match.
-A missing ingester, invalid metadata map, or extra argument fails closed, and the tool never changes the corpus or calls the executor.
+### MCP server (`ekap.mcp_server`)
 
-See source under `src/ekap/mcp_server/` for the full catalog of similar listing tools (spaces, controls, bidi marks, etc.).
+In-process server with call-style tool invocation. Includes search/draft tools plus a large catalog of **read-only** Unicode and whitespace hygiene inspectors (e.g. `replacement_character_sources`, space/control/bidi markers). These tools never mutate the corpus and fail closed on bad arguments.
+
+For the full tool list and contracts, see modules under `src/ekap/mcp_server/` — do not treat README as the catalog of record.
+
+### Agents (`ekap.agents`)
+
+- **Orchestrator** — structured plan, retrieval/tool use, draft answer with citation trail.
+- **Approval gate** — draft → approve → execute, or reject with state unchanged.
+- Source-removal helpers for controlled corpus edits under the same gate pattern.
+
+### Evals (`ekap.evals`)
+
+Golden questions plus an automatic scorer. CI invokes `python -m ekap.evals` so regressions fail the pipeline.
+
+---
+
+## Design principles
+
+1. **One concern per change** — conventional commits (`feat:`, `fix:`, `test:`, `chore:`, `docs:`).
+2. **Tests first for public behavior** — every feature lands with unit tests that fail without the new code.
+3. **No secrets in unit tests** — inject fakes; no live LLM or network calls.
+4. **Fail closed** — invalid tool args and missing dependencies do not partially execute side effects.
+5. **Human approval for mutation** — drafts are cheap; execution is explicit.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for local workflow and PR expectations.
+
+---
+
+## Status
+
+Alpha reference implementation (v0.1.0). The surface area is intentionally small and testable so the control-plane patterns stay obvious.
 
 ---
 
