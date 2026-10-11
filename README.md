@@ -13,7 +13,7 @@ EKAP is deliberately built to prove five capabilities in one coherent codebase �
 | **RAG** | Answers *only* from approved documents and cites every claim |
 | **MCP** | Exposes real tools any agent can call through the Model Context Protocol |
 | **Planning** | Explicit plan → retrieve/search → synthesize, with full citation trail |
-| **Evals** | 20+ golden questions scored automatically on every CI run |
+| **Evals** | 20+ golden questions in `src/ekap/evals/golden.py`, scored on every CI run |
 | **Approval Gate** | Side-effecting actions are drafted only; a human must approve before execute |
 
 Clear package boundaries, no hidden network or LLM calls in unit tests, and a human-in-the-loop control plane for anything that mutates state.
@@ -46,7 +46,54 @@ uv run pytest --cov=ekap -q
 uv run python -m ekap.evals   # scores the golden set; exits non-zero on regression
 ```
 
+CI is green only when **lint**, **unit tests**, and **golden evals** all succeed.
+
 Install is zero-runtime-deps by design. Dev extras pull in `pytest`, `pytest-cov`, and `ruff` only.
+
+---
+
+## Minimal example
+
+Ingest two sources, retrieve a ranked chunk, and surface a citation — no network, no LLM key:
+
+```python
+from ekap.rag import Ingester, Retriever
+
+ingester = Ingester()
+ingester.add(
+    "policy-1",
+    "Expense reports over 500 dollars require manager approval.",
+    metadata={"kind": "policy"},
+)
+ingester.add(
+    "handbook-1",
+    "Vacation accrues at 1.5 days per month.",
+    metadata={"kind": "handbook"},
+)
+
+citations = Retriever(ingester).query_with_citations(
+    "Who must approve expense reports over 500?",
+    top_k=1,
+)
+assert citations[0].source_id == "policy-1"
+assert "manager approval" in citations[0].snippet
+```
+
+Plan → synthesize with a citation trail:
+
+```python
+from ekap.agents import Orchestrator
+from ekap.rag import Ingester, Retriever
+
+ingester = Ingester()
+ingester.add("handbook-1", "Vacation accrues at 1.5 days per month.")
+draft = Orchestrator(Retriever(ingester)).run("How fast does vacation accrue?")
+assert draft.status == "draft"
+assert draft.citations[0].source_id == "handbook-1"
+assert "handbook-1" in draft.text
+```
+
+Mutating tool results stay pending until explicitly approved (see `ApprovalGate` and `queue_mutation_drafts` in `ekap.agents`).
 
 ---
 
@@ -70,7 +117,7 @@ For the full tool list and contracts, see modules under `src/ekap/mcp_server/` �
 
 ### Evals (`ekap.evals`)
 
-Golden questions plus an automatic scorer. CI invokes `python -m ekap.evals` so regressions fail the pipeline.
+Golden questions in `src/ekap/evals/golden.py` plus an automatic scorer. CI invokes `python -m ekap.evals` so regressions fail the pipeline.
 
 ---
 
@@ -82,13 +129,24 @@ Golden questions plus an automatic scorer. CI invokes `python -m ekap.evals` so 
 4. **Fail closed** — invalid tool args and missing dependencies do not partially execute side effects.
 5. **Human approval for mutation** — drafts are cheap; execution is explicit.
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for local workflow and PR expectations.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for local workflow and contribution expectations.
+
+---
+
+## Non-goals
+
+- Production vector databases or embedding services (in-memory token overlap is intentional).
+- Hosted MCP transports or multi-process servers (in-process tools only).
+- Real LLM calls in unit tests or CI (inject fakes/stubs).
+- Expanding the Unicode hygiene catalog without a clear product reason.
 
 ---
 
 ## Status
 
-Alpha reference implementation (v0.1.0). The surface area is intentionally small and testable so the control-plane patterns stay obvious.
+Alpha reference implementation (v0.1.0).
+
+The **control plane** (RAG, orchestrator, approval gate, evals) is intentionally small and testable. The MCP package additionally ships an expanded **read-only** catalog of Unicode/whitespace inspectors used for corpus hygiene checks; that catalog is large by design of the tooling surface, not because the agent core is unbounded.
 
 ---
 
