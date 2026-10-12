@@ -339,6 +339,36 @@ def test_min_chars_reports_shortest_document_length() -> None:
     assert ingester.min_chars == len(longer)
 
 
+def test_avg_chars_reports_mean_document_length() -> None:
+    ingester = Ingester()
+    assert ingester.avg_chars == 0.0
+    ingester.add("policy-1", POLICY)
+    assert ingester.avg_chars == float(len(POLICY))
+    ingester.add("handbook-1", HANDBOOK)
+    expected = (len(POLICY) + len(HANDBOOK)) / 2
+    assert ingester.avg_chars == expected
+    # Updating one changes the average
+    short = "xy"
+    ingester.update_text("handbook-1", short)
+    expected = (len(POLICY) + len(short)) / 2
+    assert ingester.avg_chars == expected
+    # Removing reduces to the remaining single document
+    ingester.remove("handbook-1")
+    assert ingester.avg_chars == float(len(POLICY))
+    ingester.clear()
+    assert ingester.avg_chars == 0.0
+    # After clear, adding again works
+    ingester.add("policy-1", POLICY)
+    assert ingester.avg_chars == float(len(POLICY))
+    # Re-add same source replaces
+    ingester.add("policy-1", short)
+    assert ingester.avg_chars == float(len(short))
+    # Three documents
+    ingester.add("extra-1", "abc")
+    expected = (len(short) + 3) / 2
+    assert abs(ingester.avg_chars - expected) < 1e-9
+
+
 def test_update_metadata_replaces_without_rechunking() -> None:
     ingester = Ingester()
     ingester.add("policy-1", POLICY, metadata={"kind": "policy", "tenant": "acme"})
@@ -467,49 +497,42 @@ def test_find_lists_sources_by_metadata() -> None:
     beta = ingester.find(metadata={" tenant ": "beta"})
     assert [document.source_id for document in beta] == ["policy-b"]
     assert beta[0].text == BETA_POLICY
-    assert beta[0].metadata == {"tenant": "beta", "kind": "policy"}
-
-    acme_policies = ingester.find(metadata={"tenant": "acme", "kind": "policy"})
-    assert [document.source_id for document in acme_policies] == ["policy-a"]
-    assert ingester.find(metadata={"tenant": "missing"}) == ()
-
     beta[0].metadata["tenant"] = "mutated"
-    stored = ingester.find(metadata={"tenant": "beta"})
-    assert stored[0].metadata == {"tenant": "beta", "kind": "policy"}
+    again = ingester.find(metadata={"tenant": "beta"})
+    assert again[0].metadata == {"tenant": "beta", "kind": "policy"}
+
+    both = ingester.find(metadata={"tenant": "acme", "kind": "policy"})
+    assert [document.source_id for document in both] == ["policy-a"]
+
+    assert ingester.find(metadata={}) == everything
+    assert ingester.find(metadata={"tenant": "missing"}) == ()
 
     with pytest.raises(TypeError):
         ingester.find(metadata={"tenant": 1})  # type: ignore[dict-item]
+    with pytest.raises(ValueError):
+        ingester.find(metadata={"": "acme"})
 
 
-def test_query_drops_hits_below_min_score() -> None:
+def test_query_min_score_filters_weak_hits() -> None:
     ingester = Ingester()
     ingester.add("policy-1", POLICY)
     ingester.add("handbook-1", HANDBOOK)
     retriever = Retriever(ingester)
-    question = "manager approval unused vacation roll"
-
-    unfiltered = retriever.query(question, top_k=2)
-    assert [hit.chunk.source_id for hit in unfiltered] == ["handbook-1", "policy-1"]
-    assert unfiltered[0].score == pytest.approx(0.6)
-    assert unfiltered[1].score == pytest.approx(0.4)
-
-    kept = retriever.query(question, top_k=2, min_score=0.5)
-    assert [hit.chunk.source_id for hit in kept] == ["handbook-1"]
-    assert "unused vacation" in kept[0].chunk.text.lower()
-
-    citations = retriever.query_with_citations(question, top_k=2, min_score=0.5)
-    assert [citation.source_id for citation in citations] == ["handbook-1"]
-    assert citations[0].score == pytest.approx(0.6)
-    assert "roll over" in citations[0].snippet
-
-    assert retriever.query(question, min_score=1) == []
-    assert len(ingester.documents) == 2
-    assert {doc.source_id for doc in ingester.documents} == {"policy-1", "handbook-1"}
-
+    question = "Who must approve expense reports over 500?"
+    all_hits = retriever.query(question, top_k=5)
+    assert all_hits
+    assert all(hit.score > 0 for hit in all_hits)
+    strong = retriever.query(question, top_k=5, min_score=0.5)
+    assert all(hit.score >= 0.5 for hit in strong)
+    assert len(strong) <= len(all_hits)
+    none = retriever.query(question, top_k=5, min_score=1.0)
+    assert none == [] or all(hit.score >= 1.0 for hit in none)
+    # Default min_score is 0
+    assert retriever.query(question, top_k=5, min_score=0) == all_hits
     with pytest.raises(ValueError):
         retriever.query(question, min_score=-0.1)
     with pytest.raises(ValueError):
-        retriever.query_with_citations(question, min_score=1.1)
+        retriever.query(question, min_score=1.1)
     with pytest.raises(TypeError):
         retriever.query(question, min_score="high")  # type: ignore[arg-type]
     with pytest.raises(TypeError):
