@@ -1,1 +1,1 @@
-TEMPORARY
+$(cat /tmp/core_new.py)
