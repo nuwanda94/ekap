@@ -27,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Ingester.chunk_count` reports the total number of chunks in the corpus.
 - `Ingester.document_count` reports the total number of documents in the corpus (matches `len()`).
 - `Ingester.total_chars` reports the sum of character lengths of all document texts (independent of chunking).
+- `Ingester.max_chars` reports the length of the longest document text (0 if the corpus is empty).
 
 ### Notes
 - Alpha reference implementation. No network calls or real LLM keys required for unit tests.

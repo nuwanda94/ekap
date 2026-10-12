@@ -283,6 +283,34 @@ def test_total_chars_reports_sum_of_document_lengths() -> None:
     assert ingester.total_chars == len("even shorter")
 
 
+def test_max_chars_reports_longest_document_length() -> None:
+    ingester = Ingester()
+    assert ingester.max_chars == 0
+    ingester.add("policy-1", POLICY)
+    assert ingester.max_chars == len(POLICY)
+    ingester.add("handbook-1", HANDBOOK)
+    assert ingester.max_chars == max(len(POLICY), len(HANDBOOK))
+    # Updating a shorter one does not change max
+    short = "x"
+    ingester.update_text("handbook-1", short)
+    assert ingester.max_chars == len(POLICY)
+    # Updating the long one to something longer increases it
+    longer = POLICY + " extra"
+    ingester.update_text("policy-1", longer)
+    assert ingester.max_chars == len(longer)
+    # Removing the longest reduces to the remaining
+    ingester.remove("policy-1")
+    assert ingester.max_chars == len(short)
+    ingester.clear()
+    assert ingester.max_chars == 0
+    # After clear, adding again works
+    ingester.add("policy-1", POLICY)
+    assert ingester.max_chars == len(POLICY)
+    # Re-add same source with shorter text reduces it
+    ingester.add("policy-1", "short")
+    assert ingester.max_chars == len("short")
+
+
 def test_update_metadata_replaces_without_rechunking() -> None:
     ingester = Ingester()
     ingester.add("policy-1", POLICY, metadata={"kind": "policy", "tenant": "acme"})

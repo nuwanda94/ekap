@@ -122,6 +122,18 @@ class Ingester:
         return sum(len(document.text) for document in self._documents.values())
 
     @property
+    def max_chars(self) -> int:
+        """Return the length of the longest document text, or 0 if empty.
+
+        This is the maximum of ``len(document.text)`` across ingested documents.
+        The value changes when documents are added, updated (text replacement),
+        removed, or cleared. It is independent of chunk count.
+        """
+        if not self._documents:
+            return 0
+        return max(len(document.text) for document in self._documents.values())
+
+    @property
     def source_ids(self) -> tuple[str, ...]:
         """Return source ids of ingested documents in insertion order."""
         return tuple(self._documents.keys())
