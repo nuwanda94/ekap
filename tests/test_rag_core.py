@@ -1,1 +1,1 @@
-$(cat /tmp/test_new.py)
+PLACEHOLDER_TEST
