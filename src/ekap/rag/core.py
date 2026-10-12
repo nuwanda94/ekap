@@ -258,6 +258,32 @@ class Ingester:
         return len(lengths)
 
     @property
+    def iqr_chars(self) -> float:
+        """Return the interquartile range of document text lengths, or 0.0 if empty.
+
+        This is the difference between the 75th and 25th percentiles of
+        ``len(document.text)``, computed with linear interpolation. For fewer
+        than two documents it is 0.0. The value changes when documents are added,
+        updated (text replacement), removed, or cleared. It is independent of
+        chunk count.
+        """
+        if not self._documents:
+            return 0.0
+        lengths = sorted(len(document.text) for document in self._documents.values())
+        n = len(lengths)
+        if n < 2:
+            return 0.0
+
+        def _percentile(p: float) -> float:
+            idx = p * (n - 1)
+            lo = int(idx)
+            hi = min(lo + 1, n - 1)
+            frac = idx - lo
+            return lengths[lo] * (1 - frac) + lengths[hi] * frac
+
+        return _percentile(0.75) - _percentile(0.25)
+
+    @property
     def source_ids(self) -> tuple[str, ...]:
         """Return source ids of ingested documents in insertion order."""
         return tuple(self._documents.keys())

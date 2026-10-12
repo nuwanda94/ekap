@@ -577,6 +577,45 @@ def test_nunique_chars_reports_distinct_length_count() -> None:
     assert ingester.nunique_chars == 1
 
 
+def test_iqr_chars_reports_interquartile_range() -> None:
+    ingester = Ingester()
+    assert ingester.iqr_chars == 0.0
+    ingester.add("policy-1", POLICY)
+    assert ingester.iqr_chars == 0.0  # single document
+    # Two documents: lengths of POLICY and HANDBOOK
+    # Use known short strings for exact control
+    ingester.clear()
+    ingester.add("a", "a")  # len 1
+    ingester.add("b", "bb")  # len 2
+    # n=2: Q1 = 1*0.75 + 2*0.25 = 1.25, Q3 = 1*0.25 + 2*0.75 = 1.75, IQR=0.5
+    assert ingester.iqr_chars == 0.5
+    ingester.add("c", "ccc")  # len 3
+    # sorted [1,2,3], n=3
+    # Q1: idx=0.25*2=0.5 → 1*0.5 + 2*0.5 = 1.5
+    # Q3: idx=0.75*2=1.5 → 2*0.5 + 3*0.5 = 2.5
+    # IQR=1.0
+    assert ingester.iqr_chars == 1.0
+    ingester.add("d", "dddd")  # [1,2,3,4]
+    # Q1: idx=0.25*3=0.75 → 1*0.25 + 2*0.75 = 1.75
+    # Q3: idx=0.75*3=2.25 → 3*0.75 + 4*0.25 = 3.25
+    # IQR=1.5
+    assert ingester.iqr_chars == 1.5
+    # Update changes it
+    ingester.update_text("d", "ddddd")  # [1,2,3,5]
+    # Q1: idx=0.75 → 1*0.25+2*0.75=1.75
+    # Q3: idx=2.25 → 3*0.75 + 5*0.25 = 3.5
+    # IQR=1.75
+    assert abs(ingester.iqr_chars - 1.75) < 1e-9
+    # Remove
+    ingester.remove("a")  # [2,3,5]
+    # n=3, Q1=2.5? wait: idx=0.5 → 2*0.5+3*0.5=2.5
+    # Q3 idx=1.5 → 3*0.5 + 5*0.5=4.0
+    # IQR=1.5
+    assert ingester.iqr_chars == 1.5
+    ingester.clear()
+    assert ingester.iqr_chars == 0.0
+
+
 def test_update_metadata_replaces_without_rechunking() -> None:
     ingester = Ingester()
     ingester.add("policy-1", POLICY, metadata={"kind": "policy", "tenant": "acme"})

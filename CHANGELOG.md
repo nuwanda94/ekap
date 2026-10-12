@@ -36,6 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Ingester.range_chars` reports the difference between the longest and shortest document text lengths (0 if the corpus is empty or has one document).
 - `Ingester.mode_chars` reports the most frequent document text length (0 if empty; smallest length when there is a tie).
 - `Ingester.nunique_chars` reports the number of distinct document text lengths (0 if empty).
+- `Ingester.iqr_chars` reports the interquartile range of document text lengths (0.0 if empty or fewer than two documents; linear-interpolation percentiles).
 
 ### Notes
 - Alpha reference implementation. No network calls or real LLM keys required for unit tests.
