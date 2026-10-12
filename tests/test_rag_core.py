@@ -369,6 +369,38 @@ def test_avg_chars_reports_mean_document_length() -> None:
     assert abs(ingester.avg_chars - expected) < 1e-9
 
 
+def test_median_chars_reports_median_document_length() -> None:
+    ingester = Ingester()
+    assert ingester.median_chars == 0.0
+    ingester.add("policy-1", POLICY)
+    assert ingester.median_chars == float(len(POLICY))
+    # Two documents: average of the two lengths
+    ingester.add("handbook-1", HANDBOOK)
+    expected = (len(POLICY) + len(HANDBOOK)) / 2.0
+    assert ingester.median_chars == expected
+    # Three documents: middle value after sorting
+    short = "xy"
+    ingester.add("extra-1", short)
+    lengths = sorted([len(POLICY), len(HANDBOOK), len(short)])
+    assert ingester.median_chars == float(lengths[1])
+    # Updating changes the median
+    medium = "abcde"
+    ingester.update_text("extra-1", medium)
+    lengths = sorted([len(POLICY), len(HANDBOOK), len(medium)])
+    assert ingester.median_chars == float(lengths[1])
+    # Removing one leaves even count again
+    ingester.remove("handbook-1")
+    expected = (len(POLICY) + len(medium)) / 2.0
+    assert ingester.median_chars == expected
+    ingester.clear()
+    assert ingester.median_chars == 0.0
+    # Re-add works
+    ingester.add("a", "hello")
+    ingester.add("b", "hi")
+    ingester.add("c", "hey")
+    assert ingester.median_chars == 3.0  # 2, 3, 5 → 3
+
+
 def test_update_metadata_replaces_without_rechunking() -> None:
     ingester = Ingester()
     ingester.add("policy-1", POLICY, metadata={"kind": "policy", "tenant": "acme"})

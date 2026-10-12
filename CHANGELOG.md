@@ -30,6 +30,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Ingester.max_chars` reports the length of the longest document text (0 if the corpus is empty).
 - `Ingester.min_chars` reports the length of the shortest document text (0 if the corpus is empty).
 - `Ingester.avg_chars` reports the average length of document texts (0.0 if the corpus is empty).
+- `Ingester.median_chars` reports the median length of document texts (0.0 if the corpus is empty; averages the two central values when the count is even).
 
 ### Notes
 - Alpha reference implementation. No network calls or real LLM keys required for unit tests.

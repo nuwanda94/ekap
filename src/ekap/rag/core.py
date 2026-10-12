@@ -159,6 +159,24 @@ class Ingester:
         return total / len(self._documents)
 
     @property
+    def median_chars(self) -> float:
+        """Return the median length of document texts, or 0.0 if empty.
+
+        This is the median of ``len(document.text)`` across ingested documents.
+        For an even number of documents it is the average of the two central
+        values. The value changes when documents are added, updated (text
+        replacement), removed, or cleared. It is independent of chunk count.
+        """
+        if not self._documents:
+            return 0.0
+        lengths = sorted(len(document.text) for document in self._documents.values())
+        n = len(lengths)
+        mid = n // 2
+        if n % 2 == 1:
+            return float(lengths[mid])
+        return (lengths[mid - 1] + lengths[mid]) / 2.0
+
+    @property
     def source_ids(self) -> tuple[str, ...]:
         """Return source ids of ingested documents in insertion order."""
         return tuple(self._documents.keys())
