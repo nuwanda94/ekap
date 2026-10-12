@@ -235,6 +235,30 @@ def test_chunk_count_reports_total_chunks() -> None:
     assert ingester.chunk_count == len(ingester.chunks)
 
 
+def test_document_count_reports_total_documents() -> None:
+    ingester = Ingester()
+    assert ingester.document_count == 0
+    assert ingester.document_count == len(ingester)
+    ingester.add("policy-1", POLICY)
+    assert ingester.document_count == 1
+    assert ingester.document_count == len(ingester)
+    ingester.add("handbook-1", HANDBOOK)
+    assert ingester.document_count == 2
+    assert ingester.document_count == len(ingester)
+    # Re-add same source does not increase count
+    ingester.add("policy-1", "updated text")
+    assert ingester.document_count == 2
+    ingester.remove("policy-1")
+    assert ingester.document_count == 1
+    assert ingester.document_count == len(ingester)
+    ingester.clear()
+    assert ingester.document_count == 0
+    assert ingester.document_count == len(ingester)
+    # After clear, adding again works
+    ingester.add("policy-1", POLICY)
+    assert ingester.document_count == 1
+
+
 def test_update_metadata_replaces_without_rechunking() -> None:
     ingester = Ingester()
     ingester.add("policy-1", POLICY, metadata={"kind": "policy", "tenant": "acme"})

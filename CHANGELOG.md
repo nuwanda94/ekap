@@ -25,6 +25,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Ingester.update_text` replaces document text and re-chunks it while preserving metadata (whitespace-tolerant source id; fails closed on missing source or blank text).
 - `Ingester.chunks_for` returns the chunks belonging to a source id in index order (whitespace-tolerant; raises KeyError if absent).
 - `Ingester.chunk_count` reports the total number of chunks in the corpus.
+- `Ingester.document_count` reports the total number of documents in the corpus (matches `len()`).
 
 ### Notes
 - Alpha reference implementation. No network calls or real LLM keys required for unit tests.
