@@ -616,6 +616,35 @@ def test_iqr_chars_reports_interquartile_range() -> None:
     assert ingester.iqr_chars == 0.0
 
 
+def test_p90_chars_reports_90th_percentile() -> None:
+    ingester = Ingester()
+    assert ingester.p90_chars == 0.0
+    ingester.add("policy-1", POLICY)
+    assert ingester.p90_chars == float(len(POLICY))  # single document
+    # Controlled lengths
+    ingester.clear()
+    ingester.add("a", "a")  # len 1
+    ingester.add("b", "bb")  # len 2
+    # n=2: idx = 0.9 * 1 = 0.9 → 1*0.1 + 2*0.9 = 1.9
+    assert abs(ingester.p90_chars - 1.9) < 1e-9
+    ingester.add("c", "ccc")  # [1,2,3]
+    # idx = 0.9 * 2 = 1.8 → 2*0.2 + 3*0.8 = 2.8
+    assert abs(ingester.p90_chars - 2.8) < 1e-9
+    ingester.add("d", "dddd")  # [1,2,3,4]
+    # idx = 0.9 * 3 = 2.7 → 3*0.3 + 4*0.7 = 3.7
+    assert abs(ingester.p90_chars - 3.7) < 1e-9
+    # Update changes it
+    ingester.update_text("d", "ddddd")  # [1,2,3,5]
+    # idx = 2.7 → 3*0.3 + 5*0.7 = 4.4
+    assert abs(ingester.p90_chars - 4.4) < 1e-9
+    # Remove
+    ingester.remove("a")  # [2,3,5]
+    # n=3, idx=0.9*2=1.8 → 3*0.2 + 5*0.8 = 4.6
+    assert abs(ingester.p90_chars - 4.6) < 1e-9
+    ingester.clear()
+    assert ingester.p90_chars == 0.0
+
+
 def test_update_metadata_replaces_without_rechunking() -> None:
     ingester = Ingester()
     ingester.add("policy-1", POLICY, metadata={"kind": "policy", "tenant": "acme"})

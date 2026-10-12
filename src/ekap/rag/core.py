@@ -284,6 +284,27 @@ class Ingester:
         return _percentile(0.75) - _percentile(0.25)
 
     @property
+    def p90_chars(self) -> float:
+        """Return the 90th percentile of document text lengths, or 0.0 if empty.
+
+        This is the 90th percentile of ``len(document.text)``, computed with linear
+        interpolation. For a single document it is the length itself. The value
+        changes when documents are added, updated (text replacement), removed, or
+        cleared. It is independent of chunk count.
+        """
+        if not self._documents:
+            return 0.0
+        lengths = sorted(len(document.text) for document in self._documents.values())
+        n = len(lengths)
+        if n == 1:
+            return float(lengths[0])
+        idx = 0.9 * (n - 1)
+        lo = int(idx)
+        hi = min(lo + 1, n - 1)
+        frac = idx - lo
+        return lengths[lo] * (1 - frac) + lengths[hi] * frac
+
+    @property
     def source_ids(self) -> tuple[str, ...]:
         """Return source ids of ingested documents in insertion order."""
         return tuple(self._documents.keys())
