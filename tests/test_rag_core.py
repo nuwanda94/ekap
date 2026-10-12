@@ -1,1 +1,1 @@
-$(cat /tmp/test_rag_core_fixed.py)
+PLACEHOLDER_WILL_REPLACE
