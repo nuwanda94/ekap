@@ -92,6 +92,16 @@ class Ingester:
         return tuple(self._chunks)
 
     @property
+    def chunk_count(self) -> int:
+        """Return the number of chunks currently in the corpus.
+
+        This is the total across all sources. The value changes when documents
+        are added, updated, removed, or cleared. It is independent of document
+        count when chunking produces multiple slices.
+        """
+        return len(self._chunks)
+
+    @property
     def source_ids(self) -> tuple[str, ...]:
         """Return source ids of ingested documents in insertion order."""
         return tuple(self._documents.keys())

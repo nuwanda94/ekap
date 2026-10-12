@@ -216,6 +216,25 @@ def test_chunks_for_returns_source_chunks() -> None:
     assert "manager approval" not in new_chunks[0].text
 
 
+def test_chunk_count_reports_total_chunks() -> None:
+    ingester = Ingester(chunk_size=80, chunk_overlap=10)
+    assert ingester.chunk_count == 0
+    ingester.add("policy-1", POLICY)
+    first = ingester.chunk_count
+    assert first >= 1
+    assert first == len(ingester.chunks)
+    ingester.add("handbook-1", HANDBOOK)
+    assert ingester.chunk_count > first
+    assert ingester.chunk_count == len(ingester.chunks)
+    ingester.remove("policy-1")
+    assert ingester.chunk_count == len(ingester.chunks)
+    ingester.clear()
+    assert ingester.chunk_count == 0
+    # After clear, adding again works
+    ingester.add("policy-1", POLICY)
+    assert ingester.chunk_count == len(ingester.chunks)
+
+
 def test_update_metadata_replaces_without_rechunking() -> None:
     ingester = Ingester()
     ingester.add("policy-1", POLICY, metadata={"kind": "policy", "tenant": "acme"})
