@@ -476,7 +476,7 @@ def test_update_metadata_replaces_without_rechunking() -> None:
     with pytest.raises(ValueError):
         ingester.update_metadata("   ", {"kind": "x"})
     with pytest.raises(ValueError):
-        ingester.update_metadata("policy-1", {"":: "x"})
+        ingester.update_metadata("policy-1", {"": : "x"})
     with pytest.raises(TypeError):
         ingester.update_metadata("policy-1", {"kind": 1})  # type: ignore[arg-type]
 
