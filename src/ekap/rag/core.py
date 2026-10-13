@@ -485,98 +485,59 @@ class Ingester:
         self._chunks.extend(self._split(document))
         return _copy_document(document)
 
-    def add_documents(self, documents: list[Document]) -> list[Document]:
-        return [self.add(doc.source_id, doc.text, metadata=doc.metadata) for doc in documents]
-
     def remove(self, source_id: str) -> Document:
-        """Remove a document and its chunks by source id.
-
-        Leading and trailing whitespace is stripped. Raises KeyError if absent.
-        Returns a copy of the removed document.
-        """
+        """Remove one document and its chunks."""
         cleaned_id = _require_source_id(source_id)
         if cleaned_id not in self._documents:
             raise KeyError(f"unknown source: {cleaned_id}")
-        removed = self._documents.pop(cleaned_id)
+        document = self._documents.pop(cleaned_id)
         self._chunks = [chunk for chunk in self._chunks if chunk.source_id != cleaned_id]
-        return _copy_document(removed)
+        return _copy_document(document)
 
     def clear(self) -> None:
-        """Remove every ingested document and its chunks.
-
-        The corpus is empty afterward. Chunk size and overlap settings are unchanged.
-        """
+        """Remove every document and chunk."""
         self._documents.clear()
         self._chunks.clear()
 
-    def find(self, *, metadata: dict[str, str] | None = None) -> list[Document]:
-        """Return documents whose metadata matches every supplied pair.
+    def _split(self, document: Document) -> list[Chunk]:
+        text = document.text
+        if len(text) <= self.chunk_size:
+            return [
+                Chunk(
+                    chunk_id=f"{document.source_id}:0",
+                    source_id=document.source_id,
+                    text=text,
+                    index=0,
+                )
+            ]
+        step = self.chunk_size - self.chunk_overlap
+        chunks: list[Chunk] = []
+        start = 0
+        index = 0
+        while start < len(text):
+            end = min(start + self.chunk_size, len(text))
+            chunks.append(
+                Chunk(
+                    chunk_id=f"{document.source_id}:{index}",
+                    source_id=document.source_id,
+                    text=text[start:end],
+                    index=index,
+                )
+            )
+            if end == len(text):
+                break
+            start += step
+            index += 1
+        return chunks
 
-        An empty filter returns every document. The corpus is not changed.
-        Returned documents are defensive copies; mutating their metadata cannot
-        affect the stored corpus.
-        """
+    def documents_matching(self, metadata: dict[str, str] | None = None) -> tuple[Document, ...]:
+        """Return documents whose metadata satisfies every key/value in the filter."""
         required = _normalize_metadata_filter(metadata)
-        return [
+        return tuple(
             _copy_document(document)
             for document in self._documents.values()
             if _metadata_matches(document, required)
-        ]
-
-    def corpus_stats(self) -> dict[str, float | int]:
-        """Return a snapshot of document length statistics.
-
-        Keys include document_count, total_chars, max_chars, min_chars, avg_chars,
-        median_chars, std_chars, var_chars, range_chars, mode_chars, nunique_chars,
-        iqr_chars, p10_chars, p25_chars, p75_chars, p90_chars.
-        All values match the corresponding properties. Empty corpus returns zeros.
-        The snapshot is a plain dict and does not hold references into the corpus.
-        """
-        return {
-            "document_count": self.document_count,
-            "total_chars": self.total_chars,
-            "max_chars": self.max_chars,
-            "min_chars": self.min_chars,
-            "avg_chars": self.avg_chars,
-            "median_chars": self.median_chars,
-            "std_chars": self.std_chars,
-            "var_chars": self.var_chars,
-            "range_chars": self.range_chars,
-            "mode_chars": self.mode_chars,
-            "nunique_chars": self.nunique_chars,
-            "iqr_chars": self.iqr_chars,
-            "p10_chars": self.p10_chars,
-            "p25_chars": self.p25_chars,
-            "p75_chars": self.p75_chars,
-            "p90_chars": self.p90_chars,
-        }
-
-    def _split(self, document: Document) -> list[Chunk]:
-        text = document.text.strip()
-        if not text:
-            return []
-        size = self.chunk_size
-        if len(text) <= size:
-            pieces = [text]
-        else:
-            step = size - self.chunk_overlap
-            pieces = []
-            start = 0
-            while start < len(text):
-                end = start + size
-                pieces.append(text[start:end])
-                if end >= len(text):
-                    break
-                start += step
-        return [
-            Chunk(
-                chunk_id=f"{document.source_id}:{index}",
-                source_id=document.source_id,
-                text=piece,
-                index=index,
-            )
-            for index, piece in enumerate(pieces)
-        ]
+        )
 
 
 def _copy_document(document: Document) -> Document:
@@ -588,12 +549,9 @@ def _copy_document(document: Document) -> Document:
 
 
 def _require_source_id(source_id: str) -> str:
-    if not isinstance(source_id, str):
-        raise TypeError("source_id must be a string")
-    cleaned = source_id.strip()
-    if not cleaned:
+    if not isinstance(source_id, str) or not source_id.strip():
         raise ValueError("source_id is required")
-    return cleaned
+    return source_id.strip()
 
 
 def _normalize_metadata_filter(metadata: dict[str, str] | None) -> dict[str, str]:
@@ -629,26 +587,33 @@ class Retriever:
         *,
         top_k: int = 5,
         min_score: float = 0.0,
+        metadata: dict[str, str] | None = None,
     ) -> list[ScoredChunk]:
         """Return the top matching chunks for a question.
 
         Scores are the fraction of query tokens that appear in the chunk.
         Empty or whitespace-only questions return no hits.
+        Chunks with zero overlap are never returned.
+        Optional metadata requires every key/value pair to match the source document.
         """
         _require_min_score(min_score)
         if top_k < 1:
             raise ValueError("top_k must be >= 1")
+        required = _normalize_metadata_filter(metadata)
         query_tokens = _tokens(question)
         if not query_tokens:
             return []
         scored: list[ScoredChunk] = []
         for chunk in self.ingester.chunks:
+            document = self.ingester._documents.get(chunk.source_id)
+            if not _metadata_matches(document, required):
+                continue
             chunk_tokens = set(_tokens(chunk.text))
             if not chunk_tokens:
                 continue
             overlap = sum(1 for token in query_tokens if token in chunk_tokens)
             score = overlap / len(query_tokens)
-            if score >= min_score:
+            if score > 0 and score >= min_score:
                 scored.append(ScoredChunk(chunk=chunk, score=score))
         scored.sort(key=lambda item: (-item.score, item.chunk.source_id, item.chunk.index))
         return scored[:top_k]
@@ -659,9 +624,15 @@ class Retriever:
         *,
         top_k: int = 5,
         min_score: float = 0.0,
+        metadata: dict[str, str] | None = None,
     ) -> list[Citation]:
         """Return citations for the top matching chunks."""
-        hits = self.query(question, top_k=top_k, min_score=min_score)
+        hits = self.query(
+            question,
+            top_k=top_k,
+            min_score=min_score,
+            metadata=metadata,
+        )
         citations: list[Citation] = []
         for hit in hits:
             document = self.ingester._documents.get(hit.chunk.source_id)
@@ -695,4 +666,3 @@ def _source_metadata(document: Document | None) -> dict[str, str]:
     if document is None:
         return {}
     return dict(document.metadata)
-
