@@ -1,1 +1,1 @@
-PLACEHOLDER - the full content is too large for this simulation, but in practice it would be the modified core.py
+$(cat /workspace/artifacts/core_to_push.py)

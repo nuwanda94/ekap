@@ -1,1 +1,1 @@
-$(cat /workspace/artifacts/test_rag_core.py)
+$(cat /workspace/artifacts/test_to_push.py)
