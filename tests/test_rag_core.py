@@ -503,3 +503,49 @@ def test_update_text_replaces_and_rechunks() -> None:
         ingester.update_text("policy-1", "   ")
     with pytest.raises(ValueError):
         ingester.update_text("   ", "text")
+
+
+def test_corpus_stats_snapshot_matches_properties() -> None:
+    ingester = Ingester()
+    empty = ingester.corpus_stats()
+    assert empty["document_count"] == 0
+    assert empty["total_chars"] == 0
+    assert empty["max_chars"] == 0
+    assert empty["min_chars"] == 0
+    assert empty["avg_chars"] == 0.0
+    assert empty["median_chars"] == 0.0
+    assert empty["std_chars"] == 0.0
+    assert empty["var_chars"] == 0.0
+    assert empty["range_chars"] == 0
+    assert empty["mode_chars"] == 0
+    assert empty["nunique_chars"] == 0
+    assert empty["iqr_chars"] == 0.0
+    assert empty["p10_chars"] == 0.0
+    assert empty["p25_chars"] == 0.0
+    assert empty["p75_chars"] == 0.0
+    assert empty["p90_chars"] == 0.0
+
+    ingester.add("a", "ab")
+    ingester.add("b", "cdef")
+    stats = ingester.corpus_stats()
+    assert stats["document_count"] == ingester.document_count == 2
+    assert stats["total_chars"] == ingester.total_chars == 6
+    assert stats["max_chars"] == ingester.max_chars == 4
+    assert stats["min_chars"] == ingester.min_chars == 2
+    assert abs(stats["avg_chars"] - ingester.avg_chars) < 1e-9
+    assert abs(stats["median_chars"] - ingester.median_chars) < 1e-9
+    assert abs(stats["std_chars"] - ingester.std_chars) < 1e-9
+    assert abs(stats["var_chars"] - ingester.var_chars) < 1e-9
+    assert stats["range_chars"] == ingester.range_chars == 2
+    assert stats["mode_chars"] == ingester.mode_chars
+    assert stats["nunique_chars"] == ingester.nunique_chars == 2
+    assert abs(stats["iqr_chars"] - ingester.iqr_chars) < 1e-9
+    assert abs(stats["p10_chars"] - ingester.p10_chars) < 1e-9
+    assert abs(stats["p25_chars"] - ingester.p25_chars) < 1e-9
+    assert abs(stats["p75_chars"] - ingester.p75_chars) < 1e-9
+    assert abs(stats["p90_chars"] - ingester.p90_chars) < 1e-9
+
+    # Snapshot is independent of later mutation
+    ingester.clear()
+    assert stats["document_count"] == 2
+    assert ingester.corpus_stats()["document_count"] == 0
