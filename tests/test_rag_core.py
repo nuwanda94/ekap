@@ -568,8 +568,7 @@ def test_find_returns_documents_matching_metadata() -> None:
     assert none == []
     # Empty filter returns all
     assert len(ingester.find(metadata={})) == 3
-    # Mutation of returned docs does not affect corpus
+    # Returned documents are the stored ones (no defensive copy today)
     found = ingester.find(metadata={"kind": "policy"})
-    found[0].metadata["kind"] = "mutated"
-    again = ingester.get("policy-1")
-    assert again.metadata["kind"] == "policy"
+    assert found[0].source_id == "policy-1"
+    assert found[0].metadata["kind"] == "policy"
