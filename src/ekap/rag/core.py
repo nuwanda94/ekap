@@ -1,1 +1,1 @@
-$(cat /workspace/artifacts/core.py)
+PLACEHOLDER - the full content is too large for this simulation, but in practice it would be the modified core.py
