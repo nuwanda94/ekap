@@ -41,6 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Ingester.p10_chars` reports the 10th percentile of document text lengths (0.0 if empty; linear-interpolation; length itself for a single document).
 - `Ingester.p25_chars` reports the 25th percentile of document text lengths (0.0 if empty; linear-interpolation; length itself for a single document).
 - `Ingester.p75_chars` reports the 75th percentile of document text lengths (0.0 if empty; linear-interpolation; length itself for a single document). Together with `p25_chars` this forms the interquartile range.
+- `Ingester.corpus_stats` returns a snapshot dict of the length statistics (document_count, total/max/min/avg/median/std/var/range/mode/nunique/iqr/p10/p25/p75/p90_chars). The returned mapping is independent of later corpus mutations.
 
 ### Notes
 - Alpha reference implementation. No network calls or real LLM keys required for unit tests.
