@@ -19,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Ingester.__len__` reports the number of ingested documents.
 - `Ingester.source_ids` returns source ids in insertion order.
 - `Ingester.__contains__` supports membership testing for source ids (whitespace-tolerant for strings; returns False for non-strings).
+- `Ingester.get` returns a document by source id or None.
+- `Ingester.chunks_for` returns the chunks for a given source id (empty if absent).
 
 ### Notes
 - Alpha reference implementation. No network calls or real LLM keys required for unit tests.

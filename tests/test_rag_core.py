@@ -153,3 +153,26 @@ def test_get_returns_document_or_none() -> None:
     assert ingester.get("handbook-1") is None
     ingester.remove("policy-1")
     assert ingester.get("policy-1") is None
+
+
+def test_chunks_for_returns_source_chunks() -> None:
+    ingester = Ingester(chunk_size=20, chunk_overlap=0)
+    assert ingester.chunks_for("policy-1") == ()
+    with pytest.raises(TypeError, match="source_id must be a string"):
+        ingester.chunks_for(123)  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="source_id is required"):
+        ingester.chunks_for("   ")
+    long_text = "Expense reports require manager approval and review."
+    ingester.add("policy-1", long_text, metadata={"kind": "policy"})
+    ingester.add("handbook-1", "Vacation accrues monthly.")
+    chunks = ingester.chunks_for("policy-1")
+    assert len(chunks) >= 1
+    assert all(chunk.source_id == "policy-1" for chunk in chunks)
+    assert chunks[0].metadata == {"kind": "policy"}
+    # Index order is preserved.
+    assert [chunk.index for chunk in chunks] == list(range(len(chunks)))
+    # Whitespace is stripped.
+    assert ingester.chunks_for("  policy-1  ") == chunks
+    assert ingester.chunks_for("missing") == ()
+    ingester.remove("policy-1")
+    assert ingester.chunks_for("policy-1") == ()
