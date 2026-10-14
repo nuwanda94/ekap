@@ -133,3 +133,23 @@ def test_contains_source_id() -> None:
     ingester.remove("policy-1")
     assert "policy-1" not in ingester
     assert "  policy-1  " not in ingester
+
+
+def test_get_returns_document_or_none() -> None:
+    ingester = Ingester()
+    assert ingester.get("policy-1") is None
+    with pytest.raises(TypeError, match="source_id must be a string"):
+        ingester.get(123)  # type: ignore[arg-type]
+    with pytest.raises(ValueError, match="source_id is required"):
+        ingester.get("   ")
+    doc = ingester.add("policy-1", "Expense reports require approval.", metadata={"kind": "policy"})
+    fetched = ingester.get("policy-1")
+    assert fetched is not None
+    assert fetched.source_id == "policy-1"
+    assert fetched.text == doc.text
+    assert fetched.metadata == {"kind": "policy"}
+    # Strip whitespace.
+    assert ingester.get("  policy-1  ") is fetched
+    assert ingester.get("handbook-1") is None
+    ingester.remove("policy-1")
+    assert ingester.get("policy-1") is None

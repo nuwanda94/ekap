@@ -103,6 +103,18 @@ class Ingester:
             )
         return document
 
+    def get(self, source_id: str) -> Document | None:
+        """Return the document for source_id, or None if absent.
+
+        Strings are stripped before lookup. Non-strings raise TypeError.
+        Blank source ids raise ValueError.
+        """
+        if not isinstance(source_id, str):
+            raise TypeError("source_id must be a string")
+        if not source_id.strip():
+            raise ValueError("source_id is required")
+        return self._documents.get(source_id.strip())
+
     def remove(self, source_id: str) -> Document:
         """Withdraw one source and its chunks. Returns the removed document."""
         if not isinstance(source_id, str) or not source_id.strip():
