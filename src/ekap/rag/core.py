@@ -123,6 +123,15 @@ class Ingester:
         """Return the number of ingested documents."""
         return len(self._documents)
 
+    def __contains__(self, source_id: object) -> bool:
+        """Return True if the source id is present.
+
+        Strings are stripped before lookup. Non-strings return False.
+        """
+        if not isinstance(source_id, str):
+            return False
+        return source_id.strip() in self._documents
+
     @property
     def source_ids(self) -> tuple[str, ...]:
         """Return source ids in insertion order."""

@@ -118,3 +118,18 @@ def test_source_ids_returns_insertion_order() -> None:
     assert ingester.source_ids == ("handbook-1",)
     ingester.clear()
     assert ingester.source_ids == ()
+
+
+def test_contains_source_id() -> None:
+    ingester = Ingester()
+    assert "policy-1" not in ingester
+    assert 123 not in ingester
+    assert None not in ingester
+    assert "" not in ingester
+    ingester.add("policy-1", "Expense reports require approval.")
+    assert "policy-1" in ingester
+    assert "  policy-1  " in ingester
+    assert "handbook-1" not in ingester
+    ingester.remove("policy-1")
+    assert "policy-1" not in ingester
+    assert "  policy-1  " not in ingester

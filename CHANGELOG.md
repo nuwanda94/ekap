@@ -17,37 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Zero-runtime-deps package layout, typed public APIs, ruff + pytest + golden-evals CI.
 - `Ingester.clear()` to reset the in-memory corpus while preserving chunk settings.
 - `Ingester.__len__` reports the number of ingested documents.
-- `Ingester.__contains__` supports membership testing for source ids (whitespace-tolerant, fails closed on non-strings).
-- `Ingester.__iter__` yields defensive copies of ingested documents in insertion order.
-- `Ingester.get` returns a defensive copy of a document by source id (whitespace-tolerant; raises KeyError if absent).
 - `Ingester.source_ids` returns source ids in insertion order.
-- `Ingester.update_metadata` replaces document metadata without re-chunking (whitespace-tolerant source id; fails closed on missing source or invalid metadata).
-- `Ingester.update_text` replaces document text and re-chunks it while preserving metadata (whitespace-tolerant source id; fails closed on missing source or blank text).
-- `Ingester.chunks_for` returns the chunks belonging to a source id in index order (whitespace-tolerant; raises KeyError if absent).
-- `Ingester.chunk_count` reports the total number of chunks in the corpus.
-- `Ingester.document_count` reports the total number of documents in the corpus (matches `len()`).
-- `Ingester.total_chars` reports the sum of character lengths of all document texts (independent of chunking).
-- `Ingester.max_chars` reports the length of the longest document text (0 if the corpus is empty).
-- `Ingester.min_chars` reports the length of the shortest document text (0 if the corpus is empty).
-- `Ingester.avg_chars` reports the average length of document texts (0.0 if the corpus is empty).
-- `Ingester.median_chars` reports the median length of document texts (0.0 if the corpus is empty; averages the two central values when the count is even).
-- `Ingester.std_chars` reports the population standard deviation of document text lengths (0.0 if the corpus is empty or has one document).
-- `Ingester.var_chars` reports the population variance of document text lengths (0.0 if the corpus is empty or has one document; square of `std_chars`).
-- `Ingester.range_chars` reports the difference between the longest and shortest document text lengths (0 if the corpus is empty or has one document).
-- `Ingester.mode_chars` reports the most frequent document text length (0 if empty; smallest length when there is a tie).
-- `Ingester.nunique_chars` reports the number of distinct document text lengths (0 if empty).
-- `Ingester.iqr_chars` reports the interquartile range of document text lengths (0.0 if empty or fewer than two documents; linear-interpolation percentiles).
-- `Ingester.p90_chars` reports the 90th percentile of document text lengths (0.0 if empty; linear-interpolation; length itself for a single document).
-- `Ingester.p10_chars` reports the 10th percentile of document text lengths (0.0 if empty; linear-interpolation; length itself for a single document).
-- `Ingester.p25_chars` reports the 25th percentile of document text lengths (0.0 if empty; linear-interpolation; length itself for a single document).
-- `Ingester.p75_chars` reports the 75th percentile of document text lengths (0.0 if empty; linear-interpolation; length itself for a single document). Together with `p25_chars` this forms the interquartile range.
-- `Ingester.corpus_stats` returns a snapshot dict of the length statistics (document_count, total/max/min/avg/median/std/var/range/mode/nunique/iqr/p10/p25/p75/p90_chars). The returned mapping is independent of later corpus mutations.
-- `Ingester.chunk_stats` returns a snapshot dict of chunk length statistics (chunk_count, chunk_total/max/min/avg/median_chars). The returned mapping is independent of later corpus mutations.
-- `Ingester.chunk_total_chars`, `chunk_max_chars`, `chunk_min_chars`, and `chunk_avg_chars` report length statistics over chunks (0/0.0 if empty; overlaps may make chunk totals exceed document totals).
-- `Ingester.chunk_median_chars` reports the median length of chunk texts (0.0 if empty; averages the two central values when the count is even). Included in `chunk_stats`.
-
-### Fixed
-- `Ingester.find` returns defensive copies of matching documents so that mutating a result cannot change the stored corpus.
+- `Ingester.__contains__` supports membership testing for source ids (whitespace-tolerant for strings; returns False for non-strings).
 
 ### Notes
 - Alpha reference implementation. No network calls or real LLM keys required for unit tests.
