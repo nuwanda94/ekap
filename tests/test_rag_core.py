@@ -194,3 +194,22 @@ def test_chunk_count_tracks_corpus() -> None:
     assert ingester.chunk_count == len(ingester.chunks)
     ingester.clear()
     assert ingester.chunk_count == 0
+
+
+def test_character_count_tracks_corpus() -> None:
+    ingester = Ingester()
+    assert ingester.character_count == 0
+    text1 = "Expense reports require approval."
+    text2 = "Vacation accrues monthly."
+    ingester.add("policy-1", text1)
+    assert ingester.character_count == len(text1)
+    ingester.add("handbook-1", text2)
+    assert ingester.character_count == len(text1) + len(text2)
+    # Replace updates the count.
+    new_text = "Updated policy."
+    ingester.add("policy-1", new_text)
+    assert ingester.character_count == len(new_text) + len(text2)
+    ingester.remove("handbook-1")
+    assert ingester.character_count == len(new_text)
+    ingester.clear()
+    assert ingester.character_count == 0

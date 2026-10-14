@@ -168,6 +168,11 @@ class Ingester:
         """Return the number of chunks currently stored."""
         return len(self._chunks)
 
+    @property
+    def character_count(self) -> int:
+        """Return the total number of characters across all ingested documents."""
+        return sum(len(document.text) for document in self._documents.values())
+
     def find(self, metadata: Mapping[str, Any] | None = None) -> list[Document]:
         """Return documents whose metadata contains every key/value in the filter."""
         documents = list(self._documents.values())
