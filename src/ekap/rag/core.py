@@ -1,1 +1,1 @@
-placeholder - will replace with full
+FULL_CONTENT_OF_CORE
