@@ -67,3 +67,21 @@ def test_find_filters_by_metadata() -> None:
 def test_blank_source_id_rejected() -> None:
     with pytest.raises(ValueError, match="source_id is required"):
         Ingester().add("   ", "text")
+
+
+def test_cite_truncates_long_snippet() -> None:
+    ingester = Ingester(chunk_size=400)
+    long_text = "alpha " * 40
+    ingester.add("long-1", long_text)
+    hit = Retriever(ingester).query("alpha", top_k=1)[0]
+    citation = cite(hit, max_snippet=20)
+    assert citation.source_id == "long-1"
+    assert citation.snippet.endswith("\u2026")
+    assert len(citation.snippet) <= 20
+    # Without max_snippet the full text is returned.
+    full = cite(hit)
+    assert full.snippet == long_text
+    # query_with_citations also accepts the limit.
+    limited = Retriever(ingester).query_with_citations("alpha", top_k=1, max_snippet=20)
+    assert limited[0].snippet.endswith("\u2026")
+    assert len(limited[0].snippet) <= 20

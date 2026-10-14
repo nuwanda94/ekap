@@ -197,19 +197,32 @@ class Retriever:
         *,
         metadata: Mapping[str, Any] | None = None,
         min_score: float = 0.0,
+        max_snippet: int | None = None,
     ) -> list[Citation]:
         """Retrieve and return citation objects (source id + snippet)."""
         hits = self.query(query, top_k, metadata=metadata, min_score=min_score)
-        return [cite(hit) for hit in hits]
+        return [cite(hit, max_snippet=max_snippet) for hit in hits]
 
 
-def cite(scored: ScoredChunk) -> Citation:
-    """Build a citation from a scored chunk."""
+def cite(scored: ScoredChunk, *, max_snippet: int | None = None) -> Citation:
+    """Build a citation from a scored chunk.
+
+    When max_snippet is set, the snippet is truncated to that many characters
+    and ends with an ellipsis if the original text was longer.
+    """
     if not isinstance(scored, ScoredChunk):
         raise TypeError("scored must be a ScoredChunk")
+    text = scored.chunk.text
+    if max_snippet is not None:
+        if not isinstance(max_snippet, int) or isinstance(max_snippet, bool) or max_snippet < 1:
+            raise ValueError("max_snippet must be >= 1")
+        if len(text) > max_snippet:
+            # Reserve one character for the ellipsis when truncating.
+            cut = max(1, max_snippet - 1)
+            text = text[:cut] + "\u2026"
     return Citation(
         source_id=scored.chunk.source_id,
-        snippet=scored.chunk.text,
+        snippet=text,
         chunk_id=scored.chunk.chunk_id,
         score=scored.score,
         metadata=dict(scored.chunk.metadata),
