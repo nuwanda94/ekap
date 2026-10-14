@@ -114,6 +114,15 @@ class Ingester:
         self._chunks = [chunk for chunk in self._chunks if chunk.source_id != cleaned_id]
         return document
 
+    def clear(self) -> None:
+        """Reset the in-memory corpus while preserving chunk settings."""
+        self._documents.clear()
+        self._chunks.clear()
+
+    def __len__(self) -> int:
+        """Return the number of ingested documents."""
+        return len(self._documents)
+
     def find(self, metadata: Mapping[str, Any] | None = None) -> list[Document]:
         """Return documents whose metadata contains every key/value in the filter."""
         documents = list(self._documents.values())

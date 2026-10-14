@@ -85,3 +85,23 @@ def test_cite_truncates_long_snippet() -> None:
     limited = Retriever(ingester).query_with_citations("alpha", top_k=1, max_snippet=20)
     assert limited[0].snippet.endswith("\u2026")
     assert len(limited[0].snippet) <= 20
+
+
+def test_clear_resets_corpus_preserves_settings() -> None:
+    ingester = Ingester(chunk_size=100, chunk_overlap=10)
+    ingester.add("a", "one")
+    ingester.add("b", "two")
+    assert len(ingester) == 2
+    assert len(ingester.documents) == 2
+    assert len(ingester.chunks) == 2
+    ingester.clear()
+    assert len(ingester) == 0
+    assert len(ingester.documents) == 0
+    assert len(ingester.chunks) == 0
+    # Settings are preserved.
+    assert ingester.chunk_size == 100
+    assert ingester.chunk_overlap == 10
+    # Can ingest again after clear.
+    ingester.add("c", "three")
+    assert len(ingester) == 1
+    assert ingester.documents[0].source_id == "c"
