@@ -105,3 +105,16 @@ def test_clear_resets_corpus_preserves_settings() -> None:
     ingester.add("c", "three")
     assert len(ingester) == 1
     assert ingester.documents[0].source_id == "c"
+
+
+def test_source_ids_returns_insertion_order() -> None:
+    ingester = Ingester()
+    assert ingester.source_ids == ()
+    ingester.add("policy-1", "Expense reports require approval.")
+    ingester.add("handbook-1", "Vacation accrues monthly.")
+    ingester.add("policy-1", "Updated expense policy.")  # replace keeps position
+    assert ingester.source_ids == ("policy-1", "handbook-1")
+    ingester.remove("policy-1")
+    assert ingester.source_ids == ("handbook-1",)
+    ingester.clear()
+    assert ingester.source_ids == ()

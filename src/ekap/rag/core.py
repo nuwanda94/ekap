@@ -123,6 +123,11 @@ class Ingester:
         """Return the number of ingested documents."""
         return len(self._documents)
 
+    @property
+    def source_ids(self) -> tuple[str, ...]:
+        """Return source ids in insertion order."""
+        return tuple(self._documents.keys())
+
     def find(self, metadata: Mapping[str, Any] | None = None) -> list[Document]:
         """Return documents whose metadata contains every key/value in the filter."""
         documents = list(self._documents.values())
