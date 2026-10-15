@@ -284,6 +284,17 @@ class Ingester:
         counts = Counter(lengths)
         return dict(sorted(counts.items()))
 
+    @property
+    def chunk_unique_length_count(self) -> int:
+        """Return the number of distinct chunk character lengths.
+
+        Returns 0 if no chunks are present.
+        """
+        if not self._chunks:
+            return 0
+        lengths = {len(chunk.text) for chunk in self._chunks}
+        return len(lengths)
+
     def find(self, metadata: Mapping[str, Any] | None = None) -> list[Document]:
         """Return documents whose metadata contains every key/value in the filter."""
         documents = list(self._documents.values())

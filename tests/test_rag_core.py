@@ -463,3 +463,28 @@ def test_chunk_length_histogram_tracks_corpus() -> None:
     assert ingester.chunk_length_histogram == {3: 1, 6: 1, 7: 1}
     ingester.clear()
     assert ingester.chunk_length_histogram == {}
+
+
+def test_chunk_unique_length_count_tracks_corpus() -> None:
+    ingester = Ingester(chunk_size=50, chunk_overlap=0)
+    assert ingester.chunk_unique_length_count == 0
+    text1 = "abcdef"  # length 6
+    ingester.add("a", text1)
+    assert ingester.chunk_unique_length_count == 1
+    text2 = "xyz"  # length 3
+    ingester.add("b", text2)
+    assert ingester.chunk_unique_length_count == 2
+    # Duplicate length does not increase the count.
+    ingester.add("d", "abcdef")  # another 6
+    assert ingester.chunk_unique_length_count == 2
+    # New length increases it.
+    ingester.add("e", "mediumm")  # length 7
+    assert ingester.chunk_unique_length_count == 3
+    # Remove a unique length decreases it.
+    ingester.remove("e")
+    assert ingester.chunk_unique_length_count == 2
+    # Replace can change uniqueness.
+    ingester.add("d", "xyz")  # now both remaining are length 3
+    assert ingester.chunk_unique_length_count == 1
+    ingester.clear()
+    assert ingester.chunk_unique_length_count == 0
