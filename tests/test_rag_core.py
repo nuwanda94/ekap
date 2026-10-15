@@ -232,3 +232,25 @@ def test_chunk_mean_chars_tracks_corpus() -> None:
     assert ingester.chunk_mean_chars == 16.0
     ingester.clear()
     assert ingester.chunk_mean_chars == 0.0
+
+
+def test_chunk_max_chars_tracks_corpus() -> None:
+    ingester = Ingester(chunk_size=50, chunk_overlap=0)
+    assert ingester.chunk_max_chars == 0
+    text1 = "abcdef"  # length 6
+    ingester.add("a", text1)
+    assert ingester.chunk_max_chars == 6
+    text2 = "xyz"  # length 3
+    ingester.add("b", text2)
+    assert ingester.chunk_max_chars == 6
+    # Longer chunk raises the max.
+    longer = "longer text here"  # length 16
+    ingester.add("c", longer)
+    assert ingester.chunk_max_chars == 16
+    # Replace a short one does not change max.
+    ingester.add("a", "short")
+    assert ingester.chunk_max_chars == 16
+    ingester.remove("c")
+    assert ingester.chunk_max_chars == 6
+    ingester.clear()
+    assert ingester.chunk_max_chars == 0
