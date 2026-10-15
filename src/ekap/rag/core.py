@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import re
 import statistics
+from collections import Counter
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
@@ -241,6 +242,21 @@ class Ingester:
             return 0
         lengths = [len(chunk.text) for chunk in self._chunks]
         return max(lengths) - min(lengths)
+
+    @property
+    def chunk_mode_chars(self) -> int:
+        """Return the most common chunk character length, or 0 if none.
+
+        If multiple lengths share the highest frequency, the smallest is returned.
+        """
+        if not self._chunks:
+            return 0
+        lengths = [len(chunk.text) for chunk in self._chunks]
+        # Prefer the smallest mode for determinism when multimodal.
+        counts = Counter(lengths)
+        max_count = max(counts.values())
+        modes = [length for length, count in counts.items() if count == max_count]
+        return min(modes)
 
     def find(self, metadata: Mapping[str, Any] | None = None) -> list[Document]:
         """Return documents whose metadata contains every key/value in the filter."""
