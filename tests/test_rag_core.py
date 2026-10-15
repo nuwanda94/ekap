@@ -342,3 +342,25 @@ def test_chunk_stdev_chars_tracks_corpus() -> None:
     assert ingester.chunk_stdev_chars == pytest.approx(1.0)  # [5, 3]
     ingester.clear()
     assert ingester.chunk_stdev_chars == 0.0
+
+
+def test_chunk_variance_chars_tracks_corpus() -> None:
+    ingester = Ingester(chunk_size=50, chunk_overlap=0)
+    assert ingester.chunk_variance_chars == 0.0
+    text1 = "abcdef"  # length 6
+    ingester.add("a", text1)
+    assert ingester.chunk_variance_chars == 0.0  # fewer than 2
+    text2 = "xyz"  # length 3
+    ingester.add("b", text2)
+    assert ingester.chunk_variance_chars == pytest.approx(2.25)
+    # Add a third.
+    text3 = "longer text here"  # length 16
+    ingester.add("c", text3)
+    assert ingester.chunk_variance_chars == pytest.approx(statistics.pvariance([6, 3, 16]))
+    # Replace updates the variance.
+    ingester.add("a", "short")  # length 5
+    assert ingester.chunk_variance_chars == pytest.approx(statistics.pvariance([5, 3, 16]))
+    ingester.remove("c")
+    assert ingester.chunk_variance_chars == pytest.approx(1.0)  # [5, 3] variance = 1.0
+    ingester.clear()
+    assert ingester.chunk_variance_chars == 0.0

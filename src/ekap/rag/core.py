@@ -220,6 +220,17 @@ class Ingester:
         lengths = [len(chunk.text) for chunk in self._chunks]
         return float(statistics.pstdev(lengths))
 
+    @property
+    def chunk_variance_chars(self) -> float:
+        """Return the population variance of chunk character lengths.
+
+        Returns 0.0 if fewer than 2 chunks are present.
+        """
+        if len(self._chunks) < 2:
+            return 0.0
+        lengths = [len(chunk.text) for chunk in self._chunks]
+        return float(statistics.pvariance(lengths))
+
     def find(self, metadata: Mapping[str, Any] | None = None) -> list[Document]:
         """Return documents whose metadata contains every key/value in the filter."""
         documents = list(self._documents.values())

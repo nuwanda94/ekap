@@ -29,6 +29,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Ingester.chunk_total_chars` reports the total number of characters across all current chunks (0 if none).
 - `Ingester.chunk_median_chars` reports the median character length of current chunks (0.0 if none).
 - `Ingester.chunk_stdev_chars` reports the population standard deviation of chunk character lengths (0.0 if fewer than 2 chunks).
+- `Ingester.chunk_variance_chars` reports the population variance of chunk character lengths (0.0 if fewer than 2 chunks).
 
 ### Notes
 - Alpha reference implementation. No network calls or real LLM keys required for unit tests.
