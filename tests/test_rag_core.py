@@ -248,9 +248,10 @@ def test_chunk_max_chars_tracks_corpus() -> None:
     ingester.add("c", longer)
     assert ingester.chunk_max_chars == 16
     # Replace a short one does not change max.
-    ingester.add("a", "short")
+    ingester.add("a", "short")  # length 5
     assert ingester.chunk_max_chars == 16
     ingester.remove("c")
-    assert ingester.chunk_max_chars == 6
+    # Remaining chunks: "short" (5) and "xyz" (3).
+    assert ingester.chunk_max_chars == 5
     ingester.clear()
     assert ingester.chunk_max_chars == 0
