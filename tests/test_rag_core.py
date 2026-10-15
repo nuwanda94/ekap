@@ -255,3 +255,26 @@ def test_chunk_max_chars_tracks_corpus() -> None:
     assert ingester.chunk_max_chars == 5
     ingester.clear()
     assert ingester.chunk_max_chars == 0
+
+
+def test_chunk_min_chars_tracks_corpus() -> None:
+    ingester = Ingester(chunk_size=50, chunk_overlap=0)
+    assert ingester.chunk_min_chars == 0
+    text1 = "abcdef"  # length 6
+    ingester.add("a", text1)
+    assert ingester.chunk_min_chars == 6
+    text2 = "xyz"  # length 3
+    ingester.add("b", text2)
+    assert ingester.chunk_min_chars == 3
+    # Longer chunk does not lower the min.
+    longer = "longer text here"  # length 16
+    ingester.add("c", longer)
+    assert ingester.chunk_min_chars == 3
+    # Replace the short one raises the min.
+    ingester.add("b", "medium")  # length 6
+    assert ingester.chunk_min_chars == 6
+    ingester.remove("a")
+    # Remaining chunks: "medium" (6) and "longer text here" (16).
+    assert ingester.chunk_min_chars == 6
+    ingester.clear()
+    assert ingester.chunk_min_chars == 0
