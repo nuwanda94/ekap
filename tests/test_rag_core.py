@@ -484,6 +484,7 @@ def test_chunk_unique_length_count_tracks_corpus() -> None:
     ingester.remove("e")
     assert ingester.chunk_unique_length_count == 2
     # Replace can change uniqueness.
+    ingester.remove("a")  # leave b:3 and d:6
     ingester.add("d", "xyz")  # now both remaining are length 3
     assert ingester.chunk_unique_length_count == 1
     ingester.clear()
