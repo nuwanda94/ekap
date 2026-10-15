@@ -33,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Ingester.chunk_range_chars` reports the range (max - min) of chunk character lengths (0 if fewer than 2 chunks).
 - `Ingester.chunk_mode_chars` reports the most common chunk character length (smallest if multimodal; 0 if none).
 - `Ingester.chunk_mode_count` reports the number of chunks that have the mode character length (0 if none).
+- `Ingester.chunk_length_histogram` reports the distribution of chunk character lengths as a dict of length → count (empty if none; keys sorted).
 
 ### Notes
 - Alpha reference implementation. No network calls or real LLM keys required for unit tests.

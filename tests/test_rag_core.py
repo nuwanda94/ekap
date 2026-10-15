@@ -437,3 +437,29 @@ def test_chunk_mode_count_tracks_corpus() -> None:
     assert ingester.chunk_mode_count == 1
     ingester.clear()
     assert ingester.chunk_mode_count == 0
+
+
+def test_chunk_length_histogram_tracks_corpus() -> None:
+    ingester = Ingester(chunk_size=50, chunk_overlap=0)
+    assert ingester.chunk_length_histogram == {}
+    text1 = "abcdef"  # length 6
+    ingester.add("a", text1)
+    assert ingester.chunk_length_histogram == {6: 1}
+    text2 = "xyz"  # length 3
+    ingester.add("b", text2)
+    assert ingester.chunk_length_histogram == {3: 1, 6: 1}
+    # Make length 6 more common.
+    ingester.add("d", "abcdef")  # another 6
+    assert ingester.chunk_length_histogram == {3: 1, 6: 2}
+    # Multimodal: both appear twice.
+    ingester.add("e", "xyz")
+    assert ingester.chunk_length_histogram == {3: 2, 6: 2}
+    # Replace changes frequencies.
+    ingester.add("d", "mediumm")  # length 7
+    # a:6, b:3, d:7, e:3 → {3: 2, 6: 1, 7: 1}
+    assert ingester.chunk_length_histogram == {3: 2, 6: 1, 7: 1}
+    ingester.remove("e")
+    # a:6, b:3, d:7 → {3: 1, 6: 1, 7: 1}
+    assert ingester.chunk_length_histogram == {3: 1, 6: 1, 7: 1}
+    ingester.clear()
+    assert ingester.chunk_length_histogram == {}

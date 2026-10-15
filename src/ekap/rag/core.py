@@ -271,6 +271,19 @@ class Ingester:
         counts = Counter(lengths)
         return max(counts.values())
 
+    @property
+    def chunk_length_histogram(self) -> dict[int, int]:
+        """Return a histogram of chunk character lengths (length -> count).
+
+        Empty corpus returns an empty dict. Keys are sorted ascending for
+        determinism.
+        """
+        if not self._chunks:
+            return {}
+        lengths = [len(chunk.text) for chunk in self._chunks]
+        counts = Counter(lengths)
+        return dict(sorted(counts.items()))
+
     def find(self, metadata: Mapping[str, Any] | None = None) -> list[Document]:
         """Return documents whose metadata contains every key/value in the filter."""
         documents = list(self._documents.values())
