@@ -195,6 +195,11 @@ class Ingester:
             return 0
         return min(len(chunk.text) for chunk in self._chunks)
 
+    @property
+    def chunk_total_chars(self) -> int:
+        """Return the total number of characters across all current chunks, or 0 if none."""
+        return sum(len(chunk.text) for chunk in self._chunks)
+
     def find(self, metadata: Mapping[str, Any] | None = None) -> list[Document]:
         """Return documents whose metadata contains every key/value in the filter."""
         documents = list(self._documents.values())
