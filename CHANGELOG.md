@@ -23,6 +23,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Ingester.chunks_for` returns the chunks for a given source id (empty if absent).
 - `Ingester.chunk_count` reports the number of chunks currently stored.
 - `Ingester.character_count` reports the total number of characters across all documents.
+- `Ingester.chunk_mean_chars` reports the mean character length of current chunks (0.0 if none).
 
 ### Notes
 - Alpha reference implementation. No network calls or real LLM keys required for unit tests.

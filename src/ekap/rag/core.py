@@ -173,6 +173,14 @@ class Ingester:
         """Return the total number of characters across all ingested documents."""
         return sum(len(document.text) for document in self._documents.values())
 
+    @property
+    def chunk_mean_chars(self) -> float:
+        """Return the mean character length of current chunks, or 0.0 if none."""
+        if not self._chunks:
+            return 0.0
+        total = sum(len(chunk.text) for chunk in self._chunks)
+        return total / len(self._chunks)
+
     def find(self, metadata: Mapping[str, Any] | None = None) -> list[Document]:
         """Return documents whose metadata contains every key/value in the filter."""
         documents = list(self._documents.values())

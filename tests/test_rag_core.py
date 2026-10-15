@@ -213,3 +213,22 @@ def test_character_count_tracks_corpus() -> None:
     assert ingester.character_count == len(new_text)
     ingester.clear()
     assert ingester.character_count == 0
+
+
+def test_chunk_mean_chars_tracks_corpus() -> None:
+    ingester = Ingester(chunk_size=50, chunk_overlap=0)
+    assert ingester.chunk_mean_chars == 0.0
+    text1 = "abcdef"  # length 6, one chunk
+    ingester.add("a", text1)
+    assert ingester.chunk_mean_chars == 6.0
+    text2 = "xyz"  # length 3, one chunk
+    ingester.add("b", text2)
+    assert ingester.chunk_mean_chars == (6 + 3) / 2
+    # Replace updates the mean.
+    longer = "longer text here"  # length 16
+    ingester.add("a", longer)
+    assert ingester.chunk_mean_chars == (16 + 3) / 2
+    ingester.remove("b")
+    assert ingester.chunk_mean_chars == 16.0
+    ingester.clear()
+    assert ingester.chunk_mean_chars == 0.0
