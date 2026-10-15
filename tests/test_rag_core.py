@@ -410,3 +410,30 @@ def test_chunk_mode_chars_tracks_corpus() -> None:
     assert ingester.chunk_mode_chars == 3
     ingester.clear()
     assert ingester.chunk_mode_chars == 0
+
+
+def test_chunk_mode_count_tracks_corpus() -> None:
+    ingester = Ingester(chunk_size=50, chunk_overlap=0)
+    assert ingester.chunk_mode_count == 0
+    text1 = "abcdef"  # length 6
+    ingester.add("a", text1)
+    assert ingester.chunk_mode_count == 1
+    text2 = "xyz"  # length 3
+    ingester.add("b", text2)
+    # Two unique lengths, each once: mode count is 1.
+    assert ingester.chunk_mode_count == 1
+    # Make length 6 more common.
+    ingester.add("d", "abcdef")  # another 6
+    assert ingester.chunk_mode_count == 2
+    # Multimodal: both 3 and 6 appear twice.
+    ingester.add("e", "xyz")
+    assert ingester.chunk_mode_count == 2
+    # Replace to change frequencies: now only 3 appears twice.
+    ingester.add("d", "mediumm")  # length 7
+    # a:6, b:3, d:7, e:3 → 3 appears twice
+    assert ingester.chunk_mode_count == 2
+    ingester.remove("e")
+    # a:6, b:3, d:7 → all unique, mode count 1
+    assert ingester.chunk_mode_count == 1
+    ingester.clear()
+    assert ingester.chunk_mode_count == 0
