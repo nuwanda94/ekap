@@ -231,6 +231,17 @@ class Ingester:
         lengths = [len(chunk.text) for chunk in self._chunks]
         return float(statistics.pvariance(lengths))
 
+    @property
+    def chunk_range_chars(self) -> int:
+        """Return the range (max - min) of chunk character lengths.
+
+        Returns 0 if fewer than 2 chunks are present.
+        """
+        if len(self._chunks) < 2:
+            return 0
+        lengths = [len(chunk.text) for chunk in self._chunks]
+        return max(lengths) - min(lengths)
+
     def find(self, metadata: Mapping[str, Any] | None = None) -> list[Document]:
         """Return documents whose metadata contains every key/value in the filter."""
         documents = list(self._documents.values())
