@@ -6,6 +6,7 @@ Pure Python token-overlap scoring. No network, embeddings, or external store.
 from __future__ import annotations
 
 import re
+import statistics
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
@@ -199,6 +200,14 @@ class Ingester:
     def chunk_total_chars(self) -> int:
         """Return the total number of characters across all current chunks, or 0 if none."""
         return sum(len(chunk.text) for chunk in self._chunks)
+
+    @property
+    def chunk_median_chars(self) -> float:
+        """Return the median character length of current chunks, or 0.0 if none."""
+        if not self._chunks:
+            return 0.0
+        lengths = [len(chunk.text) for chunk in self._chunks]
+        return float(statistics.median(lengths))
 
     def find(self, metadata: Mapping[str, Any] | None = None) -> list[Document]:
         """Return documents whose metadata contains every key/value in the filter."""

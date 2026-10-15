@@ -297,3 +297,25 @@ def test_chunk_total_chars_tracks_corpus() -> None:
     assert ingester.chunk_total_chars == 16
     ingester.clear()
     assert ingester.chunk_total_chars == 0
+
+
+def test_chunk_median_chars_tracks_corpus() -> None:
+    ingester = Ingester(chunk_size=50, chunk_overlap=0)
+    assert ingester.chunk_median_chars == 0.0
+    text1 = "abcdef"  # length 6
+    ingester.add("a", text1)
+    assert ingester.chunk_median_chars == 6.0
+    text2 = "xyz"  # length 3
+    ingester.add("b", text2)
+    # Odd count: median is the middle value.
+    text3 = "longer text here"  # length 16
+    ingester.add("c", text3)
+    assert ingester.chunk_median_chars == 6.0
+    # Even count after remove: average of two middle.
+    ingester.remove("c")
+    assert ingester.chunk_median_chars == (6 + 3) / 2
+    # Replace updates the median.
+    ingester.add("a", "short")  # length 5
+    assert ingester.chunk_median_chars == (5 + 3) / 2
+    ingester.clear()
+    assert ingester.chunk_median_chars == 0.0
