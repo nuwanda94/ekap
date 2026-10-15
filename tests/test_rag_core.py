@@ -1,1 +1,1 @@
-THE_REAL_CONTENT_FROM_FILE
+$(cat /workspace/artifacts/test_rag_core.py)
