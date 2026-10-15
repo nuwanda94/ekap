@@ -1,7 +1,5 @@
 """Unit tests for the in-memory RAG core."""
-import pytest
-
-from ekap.rag import Citation, Ingester, Retriever, cite
+from ekap.rag import Citation, Ingester, Retriever
 
 
 def test_ingest_two_documents() -> None:
