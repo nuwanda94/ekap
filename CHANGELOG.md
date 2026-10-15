@@ -1,1 +1,1 @@
-$(cat /tmp/CHANGELOG.md)
+PLACEHOLDER_CL
