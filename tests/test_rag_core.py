@@ -1,1 +1,1 @@
-$(cat /tmp/test_rag_core.py)
+PLACEHOLDER_FOR_FULL_CONTENT
