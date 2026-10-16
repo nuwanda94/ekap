@@ -1,1 +1,1 @@
-$(cat /tmp/core.py)
+FULL_CONTENT_HERE_FROM_FILE
