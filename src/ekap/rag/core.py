@@ -1,1 +1,1 @@
-PLACEHOLDER_CORE
+see local file for full content; the tool will receive it via the prepared content
