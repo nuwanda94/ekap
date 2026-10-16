@@ -5,6 +5,7 @@ Pure Python token-overlap scoring. No network, embeddings, or external store.
 
 from __future__ import annotations
 
+import math
 import re
 import statistics
 from collections import Counter
@@ -397,6 +398,21 @@ class Ingester:
         m4 = sum((x - mean) ** 4 for x in lengths) / n
         raw_kurtosis = m4 / (m2 ** 2)
         return float(raw_kurtosis - 3.0)
+
+    @property
+    def chunk_geometric_mean_chars(self) -> float:
+        """Return the geometric mean of chunk character lengths.
+
+        Defined as exp(mean(log(lengths))).
+        Returns 0.0 if no chunks are present or if any chunk has length 0.
+        """
+        if not self._chunks:
+            return 0.0
+        lengths = [len(chunk.text) for chunk in self._chunks]
+        if any(length <= 0 for length in lengths):
+            return 0.0
+        log_sum = sum(math.log(length) for length in lengths)
+        return float(math.exp(log_sum / len(lengths)))
 
     def find(self, metadata: Mapping[str, Any] | None = None) -> list[Document]:
         """Return documents whose metadata contains every key/value in the filter."""

@@ -35,6 +35,7 @@ def test_observability_properties_empty() -> None:
     assert ingester.chunk_skewness_chars == 0.0
     assert ingester.chunk_kurtosis_chars == 0.0
     assert ingester.chunk_excess_kurtosis_chars == 0.0
+    assert ingester.chunk_geometric_mean_chars == 0.0
     assert ingester.chunk_length_histogram == {}
 
 
@@ -87,3 +88,19 @@ def test_chunk_excess_kurtosis_chars() -> None:
     for i in range(4):
         ingester.add(f"eq-{i}", "same")
     assert ingester.chunk_excess_kurtosis_chars == 0.0
+
+
+def test_chunk_geometric_mean_chars() -> None:
+    ingester = Ingester()
+    assert ingester.chunk_geometric_mean_chars == 0.0
+    ingester.add("a", "x")
+    ingester.add("b", "yy")
+    # lengths 1, 2 → geometric mean = sqrt(2) ≈ 1.41421356237
+    assert abs(ingester.chunk_geometric_mean_chars - (2 ** 0.5)) < 1e-9
+    # Zero length returns 0.0
+    ingester.add("c", "")
+    assert ingester.chunk_geometric_mean_chars == 0.0
+    # Single positive length equals itself
+    ingester.clear()
+    ingester.add("solo", "hello")
+    assert ingester.chunk_geometric_mean_chars == 5.0

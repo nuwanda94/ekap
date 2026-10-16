@@ -41,6 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Ingester.chunk_skewness_chars` reports the population skewness (third central moment / stdev³) of chunk character lengths (0.0 if fewer than 3 chunks or variance is 0).
 - `Ingester.chunk_kurtosis_chars` reports the population kurtosis (fourth central moment / variance²) of chunk character lengths (0.0 if fewer than 4 chunks or variance is 0).
 - `Ingester.chunk_excess_kurtosis_chars` reports the excess kurtosis (population kurtosis − 3) of chunk character lengths (0.0 if fewer than 4 chunks or variance is 0).
+- `Ingester.chunk_geometric_mean_chars` reports the geometric mean (exp of mean log) of chunk character lengths (0.0 if none or any length is 0).
 
 ### Notes
 - Alpha reference implementation. No network calls or real LLM keys required for unit tests.
