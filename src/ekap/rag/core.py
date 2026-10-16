@@ -356,6 +356,27 @@ class Ingester:
         m3 = sum((x - mean) ** 3 for x in lengths) / n
         return float(m3 / (m2 ** 1.5))
 
+    @property
+    def chunk_kurtosis_chars(self) -> float:
+        """Return the population kurtosis of chunk character lengths.
+
+        Defined as the fourth central moment divided by the square of the
+        population variance (Pearson raw kurtosis).
+        Returns 0.0 if fewer than 4 chunks are present or if the variance is 0.
+        """
+        if len(self._chunks) < 4:
+            return 0.0
+        lengths = [len(chunk.text) for chunk in self._chunks]
+        n = len(lengths)
+        mean = sum(lengths) / n
+        # Second central moment (population variance).
+        m2 = sum((x - mean) ** 2 for x in lengths) / n
+        if m2 == 0.0:
+            return 0.0
+        # Fourth central moment.
+        m4 = sum((x - mean) ** 4 for x in lengths) / n
+        return float(m4 / (m2 ** 2))
+
     def find(self, metadata: Mapping[str, Any] | None = None) -> list[Document]:
         """Return documents whose metadata contains every key/value in the filter."""
         documents = list(self._documents.values())

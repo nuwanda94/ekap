@@ -39,6 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `Ingester.chunk_mad_chars` reports the median absolute deviation of chunk character lengths (0.0 if none).
 - `Ingester.chunk_cv_chars` reports the coefficient of variation (population stdev / mean) of chunk character lengths (0.0 if fewer than 2 chunks or mean is 0).
 - `Ingester.chunk_skewness_chars` reports the population skewness (third central moment / stdev³) of chunk character lengths (0.0 if fewer than 3 chunks or variance is 0).
+- `Ingester.chunk_kurtosis_chars` reports the population kurtosis (fourth central moment / variance²) of chunk character lengths (0.0 if fewer than 4 chunks or variance is 0).
 
 ### Notes
 - Alpha reference implementation. No network calls or real LLM keys required for unit tests.

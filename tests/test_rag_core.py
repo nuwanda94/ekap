@@ -33,6 +33,7 @@ def test_observability_properties_empty() -> None:
     assert ingester.chunk_mean_chars == 0.0
     assert ingester.chunk_max_chars == 0
     assert ingester.chunk_skewness_chars == 0.0
+    assert ingester.chunk_kurtosis_chars == 0.0
     assert ingester.chunk_length_histogram == {}
 
 
@@ -51,3 +52,20 @@ def test_remove_and_clear() -> None:
     assert len(ingester) == 0
     assert ingester.chunk_count == 0
     assert ingester.source_ids == ()
+
+
+def test_chunk_kurtosis_chars() -> None:
+    ingester = Ingester()
+    assert ingester.chunk_kurtosis_chars == 0.0
+    ingester.add("a", "x")
+    ingester.add("b", "yy")
+    ingester.add("c", "zzz")
+    assert ingester.chunk_kurtosis_chars == 0.0  # fewer than 4 chunks
+    ingester.add("d", "wwww")
+    # lengths 1, 2, 3, 4 → raw population kurtosis = 1.64
+    assert abs(ingester.chunk_kurtosis_chars - 1.64) < 1e-9
+    # Zero variance (all equal) returns 0.0
+    ingester.clear()
+    for i in range(4):
+        ingester.add(f"eq-{i}", "same")
+    assert ingester.chunk_kurtosis_chars == 0.0
