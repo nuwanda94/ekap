@@ -100,7 +100,7 @@ def test_chunk_geometric_mean_chars() -> None:
     # Zero length returns 0.0
     ingester.add("c", "")
     assert ingester.chunk_geometric_mean_chars == 0.0
-    # Single positive length equals itself
+    # Single positive length equals itself (within floating-point tolerance)
     ingester.clear()
     ingester.add("solo", "hello")
-    assert ingester.chunk_geometric_mean_chars == 5.0
+    assert abs(ingester.chunk_geometric_mean_chars - 5.0) < 1e-9
