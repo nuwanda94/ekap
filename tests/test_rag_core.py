@@ -1,0 +1,1 @@
+$(cat /tmp/test_rag_core.py)
