@@ -34,3 +34,20 @@ def test_observability_properties_empty() -> None:
     assert ingester.chunk_max_chars == 0
     assert ingester.chunk_skewness_chars == 0.0
     assert ingester.chunk_length_histogram == {}
+
+
+def test_remove_and_clear() -> None:
+    ingester = Ingester()
+    doc = ingester.add("policy-1", "Expense reports over 500 dollars require manager approval.")
+    assert len(ingester) == 1
+    assert ingester.chunk_count == 1
+    removed = ingester.remove("policy-1")
+    assert removed is doc
+    assert len(ingester) == 0
+    assert ingester.chunk_count == 0
+    assert "policy-1" not in ingester
+    ingester.add("handbook-1", "Vacation accrues at 1.5 days per month.")
+    ingester.clear()
+    assert len(ingester) == 0
+    assert ingester.chunk_count == 0
+    assert ingester.source_ids == ()
