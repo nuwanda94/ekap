@@ -1,1 +1,1 @@
-PLACEHOLDER_CORE
+PLACEHOLDER - will be replaced by full content from file
