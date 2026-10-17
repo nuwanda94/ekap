@@ -1,1 +1,1 @@
-$(cat /tmp/core_good.py)
+PLACEHOLDER_FOR_FULL_CONTENT
