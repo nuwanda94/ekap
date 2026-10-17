@@ -1,1 +1,1 @@
-$(cat /tmp/test_good.py)
+PLACEHOLDER

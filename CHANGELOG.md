@@ -1,1 +1,1 @@
-$(cat /tmp/changelog_fix.md)
+PLACEHOLDER
