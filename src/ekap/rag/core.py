@@ -1,1 +1,1 @@
-PLACEHOLDER_WILL_BE_REPLACED
+$(cat /workspace/artifacts/src_ekap_rag_core.py)
