@@ -1,1 +1,1 @@
-$(cat /tmp/ekap_edit/core.py)
+$(cat /tmp/core_good.py)

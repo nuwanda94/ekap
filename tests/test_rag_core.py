@@ -1,1 +1,1 @@
-$(cat /tmp/ekap_edit/test_rag_core.py)
+$(cat /tmp/test_good.py)
