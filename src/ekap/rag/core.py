@@ -1,1 +1,1 @@
-$(cat /tmp/core_update.py)
+PLACEHOLDER_FOR_FULL_CONTENT
