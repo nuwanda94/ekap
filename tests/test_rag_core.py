@@ -69,5 +69,283 @@ def test_remove_and_clear() -> None:
     assert ingester.chunk_count == 0
     assert ingester.source_ids == ()
 
-# ... (rest of the tests including the new quattuordecic one are in the full file)
-# Note: the full 14k content is used in the actual push
+
+def test_chunk_kurtosis_chars() -> None:
+    ingester = Ingester()
+    assert ingester.chunk_kurtosis_chars == 0.0
+    ingester.add("a", "x")
+    ingester.add("b", "yy")
+    ingester.add("c", "zzz")
+    assert ingester.chunk_kurtosis_chars == 0.0  # fewer than 4 chunks
+    ingester.add("d", "wwww")
+    # lengths 1, 2, 3, 4 → raw population kurtosis = 1.64
+    assert abs(ingester.chunk_kurtosis_chars - 1.64) < 1e-9
+    # Zero variance (all equal) returns 0.0
+    ingester.clear()
+    for i in range(4):
+        ingester.add(f"eq-{i}", "same")
+    assert ingester.chunk_kurtosis_chars == 0.0
+
+
+def test_chunk_excess_kurtosis_chars() -> None:
+    ingester = Ingester()
+    assert ingester.chunk_excess_kurtosis_chars == 0.0
+    ingester.add("a", "x")
+    ingester.add("b", "yy")
+    ingester.add("c", "zzz")
+    assert ingester.chunk_excess_kurtosis_chars == 0.0  # fewer than 4 chunks
+    ingester.add("d", "wwww")
+    # lengths 1, 2, 3, 4 → excess kurtosis = 1.64 - 3 = -1.36
+    assert abs(ingester.chunk_excess_kurtosis_chars - (-1.36)) < 1e-9
+    # Zero variance (all equal) returns 0.0
+    ingester.clear()
+    for i in range(4):
+        ingester.add(f"eq-{i}", "same")
+    assert ingester.chunk_excess_kurtosis_chars == 0.0
+
+
+def test_chunk_geometric_mean_chars() -> None:
+    ingester = Ingester()
+    assert ingester.chunk_geometric_mean_chars == 0.0
+    ingester.add("a", "x")
+    ingester.add("b", "yy")
+    # lengths 1, 2 → geometric mean = sqrt(2) ≈ 1.41421356237
+    assert abs(ingester.chunk_geometric_mean_chars - (2 ** 0.5)) < 1e-9
+    # Zero length returns 0.0
+    ingester.add("c", "")
+    assert ingester.chunk_geometric_mean_chars == 0.0
+    # Single positive length equals itself (within floating-point tolerance)
+    ingester.clear()
+    ingester.add("solo", "hello")
+    assert abs(ingester.chunk_geometric_mean_chars - 5.0) < 1e-9
+
+
+def test_chunk_harmonic_mean_chars() -> None:
+    ingester = Ingester()
+    assert ingester.chunk_harmonic_mean_chars == 0.0
+    ingester.add("a", "x")
+    ingester.add("b", "yy")
+    # lengths 1, 2 → harmonic mean = 2 / (1/1 + 1/2) = 2 / 1.5 = 4/3 ≈ 1.33333333333
+    assert abs(ingester.chunk_harmonic_mean_chars - (4 / 3)) < 1e-9
+    # Zero length returns 0.0
+    ingester.add("c", "")
+    assert ingester.chunk_harmonic_mean_chars == 0.0
+    # Single positive length equals itself
+    ingester.clear()
+    ingester.add("solo", "hello")
+    assert abs(ingester.chunk_harmonic_mean_chars - 5.0) < 1e-9
+
+
+def test_chunk_quadratic_mean_chars() -> None:
+    ingester = Ingester()
+    assert ingester.chunk_quadratic_mean_chars == 0.0
+    ingester.add("a", "x")
+    ingester.add("b", "yy")
+    # lengths 1, 2 → quadratic mean = sqrt((1**2 + 2**2)/2) = sqrt(2.5) ≈ 1.58113883008
+    assert abs(ingester.chunk_quadratic_mean_chars - (2.5 ** 0.5)) < 1e-9
+    # Zero length is allowed and included
+    ingester.add("c", "")
+    # lengths 1, 2, 0 → sqrt((1+4+0)/3) = sqrt(5/3) ≈ 1.29099444873
+    assert abs(ingester.chunk_quadratic_mean_chars - ((5 / 3) ** 0.5)) < 1e-9
+    # Single length equals itself
+    ingester.clear()
+    ingester.add("solo", "hello")
+    assert abs(ingester.chunk_quadratic_mean_chars - 5.0) < 1e-9
+
+
+def test_chunk_cubic_mean_chars() -> None:
+    ingester = Ingester()
+    assert ingester.chunk_cubic_mean_chars == 0.0
+    ingester.add("a", "x")
+    ingester.add("b", "yy")
+    # lengths 1, 2 → cubic mean = ((1**3 + 2**3)/2)**(1/3) = (9/2)**(1/3) ≈ 1.65096362445
+    assert abs(ingester.chunk_cubic_mean_chars - ((9 / 2) ** (1.0 / 3.0))) < 1e-9
+    # Zero length is allowed and included
+    ingester.add("c", "")
+    # lengths 1, 2, 0 → ((1 + 8 + 0)/3)**(1/3) = 3**(1/3) ≈ 1.4422495703
+    assert abs(ingester.chunk_cubic_mean_chars - (3.0 ** (1.0 / 3.0))) < 1e-9
+    # Single length equals itself
+    ingester.clear()
+    ingester.add("solo", "hello")
+    assert abs(ingester.chunk_cubic_mean_chars - 5.0) < 1e-9
+
+
+def test_chunk_quartic_mean_chars() -> None:
+    ingester = Ingester()
+    assert ingester.chunk_quartic_mean_chars == 0.0
+    ingester.add("a", "x")
+    ingester.add("b", "yy")
+    # lengths 1, 2 → quartic mean = ((1**4 + 2**4)/2)**0.25 = (17/2)**0.25 ≈ 1.7104
+    assert abs(ingester.chunk_quartic_mean_chars - ((17 / 2) ** 0.25)) < 1e-9
+    # Zero length is allowed and included
+    ingester.add("c", "")
+    # lengths 1, 2, 0 → ((1 + 16 + 0)/3)**0.25 = (17/3)**0.25
+    assert abs(ingester.chunk_quartic_mean_chars - ((17 / 3) ** 0.25)) < 1e-9
+    # Single length equals itself
+    ingester.clear()
+    ingester.add("solo", "hello")
+    assert abs(ingester.chunk_quartic_mean_chars - 5.0) < 1e-9
+
+
+def test_chunk_quintic_mean_chars() -> None:
+    ingester = Ingester()
+    assert ingester.chunk_quintic_mean_chars == 0.0
+    ingester.add("a", "x")
+    ingester.add("b", "yy")
+    # lengths 1, 2 → quintic mean = ((1**5 + 2**5)/2)**0.2 = (33/2)**0.2
+    assert abs(ingester.chunk_quintic_mean_chars - ((33 / 2) ** 0.2)) < 1e-9
+    # Zero length is allowed and included
+    ingester.add("c", "")
+    # lengths 1, 2, 0 → ((1 + 32 + 0)/3)**0.2 = (33/3)**0.2 = 11**0.2
+    assert abs(ingester.chunk_quintic_mean_chars - (11.0 ** 0.2)) < 1e-9
+    # Single length equals itself
+    ingester.clear()
+    ingester.add("solo", "hello")
+    assert abs(ingester.chunk_quintic_mean_chars - 5.0) < 1e-9
+
+
+def test_chunk_sextic_mean_chars() -> None:
+    ingester = Ingester()
+    assert ingester.chunk_sextic_mean_chars == 0.0
+    ingester.add("a", "x")
+    ingester.add("b", "yy")
+    # lengths 1, 2 → sextic mean = ((1**6 + 2**6)/2)**(1/6) = (65/2)**(1/6)
+    assert abs(ingester.chunk_sextic_mean_chars - ((65 / 2) ** (1.0 / 6.0))) < 1e-9
+    # Zero length is allowed and included
+    ingester.add("c", "")
+    # lengths 1, 2, 0 → ((1 + 64 + 0)/3)**(1/6) = (65/3)**(1/6)
+    assert abs(ingester.chunk_sextic_mean_chars - ((65 / 3) ** (1.0 / 6.0))) < 1e-9
+    # Single length equals itself
+    ingester.clear()
+    ingester.add("solo", "hello")
+    assert abs(ingester.chunk_sextic_mean_chars - 5.0) < 1e-9
+
+
+def test_chunk_septic_mean_chars() -> None:
+    ingester = Ingester()
+    assert ingester.chunk_septic_mean_chars == 0.0
+    ingester.add("a", "x")
+    ingester.add("b", "yy")
+    # lengths 1, 2 → septic mean = ((1**7 + 2**7)/2)**(1/7) = (129/2)**(1/7)
+    assert abs(ingester.chunk_septic_mean_chars - ((129 / 2) ** (1.0 / 7.0))) < 1e-9
+    # Zero length is allowed and included
+    ingester.add("c", "")
+    # lengths 1, 2, 0 → ((1 + 128 + 0)/3)**(1/7) = (129/3)**(1/7) = 43**(1/7)
+    assert abs(ingester.chunk_septic_mean_chars - (43.0 ** (1.0 / 7.0))) < 1e-9
+    # Single length equals itself
+    ingester.clear()
+    ingester.add("solo", "hello")
+    assert abs(ingester.chunk_septic_mean_chars - 5.0) < 1e-9
+
+
+def test_chunk_octic_mean_chars() -> None:
+    ingester = Ingester()
+    assert ingester.chunk_octic_mean_chars == 0.0
+    ingester.add("a", "x")
+    ingester.add("b", "yy")
+    # lengths 1, 2 → octic mean = ((1**8 + 2**8)/2)**(1/8) = (257/2)**(1/8)
+    assert abs(ingester.chunk_octic_mean_chars - ((257 / 2) ** (1.0 / 8.0))) < 1e-9
+    # Zero length is allowed and included
+    ingester.add("c", "")
+    # lengths 1, 2, 0 → ((1 + 256 + 0)/3)**(1/8) = (257/3)**(1/8)
+    assert abs(ingester.chunk_octic_mean_chars - ((257 / 3) ** (1.0 / 8.0))) < 1e-9
+    # Single length equals itself
+    ingester.clear()
+    ingester.add("solo", "hello")
+    assert abs(ingester.chunk_octic_mean_chars - 5.0) < 1e-9
+
+
+def test_chunk_nonic_mean_chars() -> None:
+    ingester = Ingester()
+    assert ingester.chunk_nonic_mean_chars == 0.0
+    ingester.add("a", "x")
+    ingester.add("b", "yy")
+    # lengths 1, 2 → nonic mean = ((1**9 + 2**9)/2)**(1/9) = (513/2)**(1/9)
+    assert abs(ingester.chunk_nonic_mean_chars - ((513 / 2) ** (1.0 / 9.0))) < 1e-9
+    # Zero length is allowed and included
+    ingester.add("c", "")
+    # lengths 1, 2, 0 → ((1 + 512 + 0)/3)**(1/9) = (513/3)**(1/9) = 171**(1/9)
+    assert abs(ingester.chunk_nonic_mean_chars - (171.0 ** (1.0 / 9.0))) < 1e-9
+    # Single length equals itself
+    ingester.clear()
+    ingester.add("solo", "hello")
+    assert abs(ingester.chunk_nonic_mean_chars - 5.0) < 1e-9
+
+
+def test_chunk_decic_mean_chars() -> None:
+    ingester = Ingester()
+    assert ingester.chunk_decic_mean_chars == 0.0
+    ingester.add("a", "x")
+    ingester.add("b", "yy")
+    # lengths 1, 2 → decic mean = ((1**10 + 2**10)/2)**(1/10) = (1025/2)**(1/10)
+    assert abs(ingester.chunk_decic_mean_chars - ((1025 / 2) ** (1.0 / 10.0))) < 1e-9
+    # Zero length is allowed and included
+    ingester.add("c", "")
+    # lengths 1, 2, 0 → ((1 + 1024 + 0)/3)**(1/10) = (1025/3)**(1/10)
+    assert abs(ingester.chunk_decic_mean_chars - ((1025 / 3) ** (1.0 / 10.0))) < 1e-9
+    # Single length equals itself
+    ingester.clear()
+    ingester.add("solo", "hello")
+    assert abs(ingester.chunk_decic_mean_chars - 5.0) < 1e-9
+
+
+def test_chunk_undecic_mean_chars() -> None:
+    ingester = Ingester()
+    assert ingester.chunk_undecic_mean_chars == 0.0
+    ingester.add("a", "x")
+    ingester.add("b", "yy")
+    # lengths 1, 2 → undecic mean = ((1**11 + 2**11)/2)**(1/11) = (2049/2)**(1/11)
+    assert abs(ingester.chunk_undecic_mean_chars - ((2049 / 2) ** (1.0 / 11.0))) < 1e-9
+    # Zero length is allowed and included
+    ingester.add("c", "")
+    # lengths 1, 2, 0 → ((1 + 2048 + 0)/3)**(1/11) = (2049/3)**(1/11) = 683**(1/11)
+    assert abs(ingester.chunk_undecic_mean_chars - (683.0 ** (1.0 / 11.0))) < 1e-9
+    # Single length equals itself
+    ingester.clear()
+    ingester.add("solo", "hello")
+    assert abs(ingester.chunk_undecic_mean_chars - 5.0) < 1e-9
+
+
+def test_chunk_duodecic_mean_chars() -> None:
+    ingester = Ingester()
+    assert ingester.chunk_duodecic_mean_chars == 0.0
+    ingester.add("a", "x")
+    ingester.add("b", "yy")
+    # lengths 1, 2 → duodecic mean = ((1**12 + 2**12)/2)**(1/12) = (4097/2)**(1/12)
+    assert abs(ingester.chunk_duodecic_mean_chars - ((4097 / 2) ** (1.0 / 12.0))) < 1e-9
+    # Zero length is allowed and included
+    ingester.add("c", "")
+    # lengths 1, 2, 0 → ((1 + 4096 + 0)/3)**(1/12) = (4097/3)**(1/12)
+    assert abs(ingester.chunk_duodecic_mean_chars - ((4097 / 3) ** (1.0 / 12.0))) < 1e-9
+    # Single length equals itself
+    ingester.clear()
+    ingester.add("solo", "hello")
+    assert abs(ingester.chunk_duodecic_mean_chars - 5.0) < 1e-9
+
+
+def test_chunk_tredecic_mean_chars() -> None:
+    ingester = Ingester()
+    assert ingester.chunk_tredecic_mean_chars == 0.0
+    assert ingester.chunk_quattuordecic_mean_chars == 0.0
+    ingester.add("a", "x")
+    ingester.add("b", "yy")
+    # lengths 1, 2 → tredecic mean = ((1**13 + 2**13)/2)**(1/13) = (8193/2)**(1/13)
+    assert abs(ingester.chunk_tredecic_mean_chars - ((8193 / 2) ** (1.0 / 13.0))) < 1e-9
+    # Zero length is allowed and included
+    ingester.add("c", "")
+    # lengths 1, 2, 0 → ((1 + 8192 + 0)/3)**(1/13) = (8193/3)**(1/13) = 2731**(1/13)
+    assert abs(ingester.chunk_tredecic_mean_chars - (2731.0 ** (1.0 / 13.0))) < 1e-9
+    # Single length equals itself
+    ingester.clear()
+    ingester.add("solo", "hello")
+    assert abs(ingester.chunk_tredecic_mean_chars - 5.0) < 1e-9
+
+
+def test_chunk_quattuordecic_mean_chars() -> None:
+    ingester = Ingester()
+    assert ingester.chunk_quattuordecic_mean_chars == 0.0
+    ingester.add("a", "x" * 1)
+    ingester.add("b", "x" * 16)
+    # 14th power mean of 1 and 16
+    expected = ((1 ** 14 + 16 ** 14) / 2) ** (1.0 / 14.0)
+    assert abs(ingester.chunk_quattuordecic_mean_chars - expected) < 1e-9
