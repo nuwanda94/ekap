@@ -1,1 +1,1 @@
-$(cat /tmp/test_rag_core_new.py)
+PLACEHOLDER_TEST

@@ -1,1 +1,1 @@
-$(cat /tmp/core_new.py)
+PLACEHOLDER_CORE
